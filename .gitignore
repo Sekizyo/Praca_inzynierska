@@ -8,3 +8,5 @@ __pycache__/
 share/
 SPIRV-Tools/
 SPIRV*/
+*.ini
+.vscode/
