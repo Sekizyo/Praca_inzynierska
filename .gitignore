@@ -1,0 +1,10 @@
+pyvenv.cfg
+Lib/
+bin/
+Include/
+Scripts/
+__pycache__/
+*.pyc
+share/
+SPIRV-Tools/
+SPIRV*/
