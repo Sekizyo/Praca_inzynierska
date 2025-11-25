@@ -34,7 +34,7 @@ class Window():
     def _init_swarms(self) -> None:
         self.player_swarm = DroneSwarm(count=10, boundary_size=100.0)
         # self.enemy_swarm = DroneSwarm(count=10, boundary_size=100.0)
-        self.target = ti.Vector([0.0, 0.0, 0.0])
+        self.target = ti.Vector([0.0, 0.0])
         self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.target_field[0] = [0.0, 0.0, 0.0]
         
@@ -45,8 +45,8 @@ class Window():
             mouse_pos = self.window.get_cursor_pos()
             x = (mouse_pos[0] - 0.5) * 200.0
             y = (mouse_pos[1] - 0.5) * 200.0
-            self.target = ti.Vector([x, y, 25.0])
-            self.target_field[0] = [x, y, 0]
+            self.target = ti.Vector([x, y])
+            self.target_field[0] = [x, y, 0.0]
         
     def _update_camera(self) -> None:
         self.camera.track_user_inputs(self.window, movement_speed=1, hold_key=ti.ui.RMB)

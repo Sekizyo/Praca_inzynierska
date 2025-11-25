@@ -98,7 +98,7 @@ class DroneSwarm:
         return steering
 
     @ti.kernel
-    def update(self, dt: ti.f32, target_pos: ti.types.vector(3, ti.f32), mode_weight: ti.f32):
+    def update(self, dt: ti.f32, target_pos: ti.types.vector(2, ti.f32), mode_weight: ti.f32):
         for i in range(self.N):
             if self.active[i] == 0:
                 continue
@@ -121,8 +121,9 @@ class DroneSwarm:
             if self.pos[i].z > self.height: self.acc[i].z -= self.max_force * 2
             if self.pos[i].z < 0.0: self.acc[i].z += self.max_force * 5
             
-            # Steering towards target
-            direction = (target_pos - self.pos[i]).normalized()
+            # Steering towards target (2D - only x and y)
+            target_3d = ti.Vector([target_pos.x, target_pos.y, self.pos[i].z])
+            direction = (target_3d - self.pos[i]).normalized()
             self.acc[i] += direction * mode_weight
 
             # Physics integration
