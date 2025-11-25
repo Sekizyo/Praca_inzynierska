@@ -1,6 +1,7 @@
 import taichi as ti
 from modules.drone import DroneSwarm
 from modules.map import Map
+from modules.voronoi import VoronoiDiagram
 from taichi.ui.window import Window as TWindow
 from taichi.ui import Canvas,  Camera
 
@@ -37,6 +38,8 @@ class Window():
         self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.target_field[0] = [0.0, 0.0, 0.0]
         
+        self.voronoi = VoronoiDiagram(boundary=100.0, resolution=200)
+        
     def _handle_input(self) -> None:
         if self.window.is_pressed(ti.ui.LMB):
             mouse_pos = self.window.get_cursor_pos()
@@ -61,6 +64,10 @@ class Window():
     
     def _draw_target(self) -> None:
         self.scene.particles(self.target_field, color=self.TARGET_COLOR, radius=self.TARGET_RADIUS)
+    
+    def _draw_voronoi(self) -> None:
+        self.voronoi.update(self.player_swarm.get_pos_field(), self.player_swarm.N)
+        self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
         
     def run(self) -> None:
         while self.window.running:
@@ -68,6 +75,7 @@ class Window():
             self._update_camera()
             self._update_bourndary()
             self._update_swarms(self.target)
+            self._draw_voronoi()
             self._draw_target()
             self.canvas.scene(self.scene)
             self.window.show()

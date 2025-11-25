@@ -1,8 +1,8 @@
 import taichi as ti
 import random
 
-from taichi import Vector, Field, MatrixField, data_oriented, func, f32, i32
-from taichi.types import vector
+from taichi import Vector, Field, MatrixField, data_oriented, func
+from taichi.types import vector, f32, i32
 
 @data_oriented
 class DroneSwarm:
@@ -39,8 +39,8 @@ class DroneSwarm:
             
             self.active[i] = 1
 
-    @func
-    def separation(self, i: i32) -> vector(3, f32):
+    @ti.func
+    def separation(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
         for j in range(self.N):
@@ -60,8 +60,8 @@ class DroneSwarm:
                     steering = steering.normalized() * self.max_force
         return steering
 
-    @func
-    def alignment(self, i: i32) -> vector(3, f32):
+    @ti.func
+    def alignment(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
         for j in range(self.N):
@@ -78,8 +78,8 @@ class DroneSwarm:
                 steering = steering.normalized() * self.max_force
         return steering
 
-    @func
-    def cohesion(self, i: i32) -> vector(3, f32):
+    @ti.func
+    def cohesion(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
         for j in range(self.N):
@@ -98,7 +98,7 @@ class DroneSwarm:
         return steering
 
     @ti.kernel
-    def update(self, dt: f32, target_pos: vector(3, f32), mode_weight: f32):
+    def update(self, dt: ti.f32, target_pos: ti.types.vector(3, ti.f32), mode_weight: ti.f32):
         for i in range(self.N):
             if self.active[i] == 0:
                 continue
