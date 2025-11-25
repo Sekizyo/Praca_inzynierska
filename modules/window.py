@@ -11,6 +11,8 @@ class Window():
     ENEMY_COLOR = (0.2, 0.2, 1.0)
     BOURNDARY_COLOR = (0.0, 1.0, 0.0)
     BOURNDARY_WIDTH: float = 1.0
+    TARGET_COLOR = (1.0, 1.0, 0.0)
+    TARGET_RADIUS: float = 2.0
     
     def __init__(self, title="Drone Voronoi Sim", size=(1024, 768)):
         ti.init()
@@ -26,12 +28,14 @@ class Window():
     def _init_camera(self) -> None:
         self.camera.position(0, 0, 300)
         self.camera.lookat(0, 0, 0)
-        self.camera.up(0, 1, 0)  # set camera up vector
+        self.camera.up(0, 1, 0)
     
     def _init_swarms(self) -> None:
         self.player_swarm = DroneSwarm(count=10, boundary_size=100.0)
         # self.enemy_swarm = DroneSwarm(count=10, boundary_size=100.0)
         self.target = ti.Vector([0.0, 0.0, 0.0])
+        self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
+        self.target_field[0] = [0.0, 0.0, 0.0]
         
     def _handle_input(self) -> None:
         if self.window.is_pressed(ti.ui.LMB):
@@ -39,9 +43,10 @@ class Window():
             x = (mouse_pos[0] - 0.5) * 200.0
             y = (mouse_pos[1] - 0.5) * 200.0
             self.target = ti.Vector([x, y, 25.0])
+            self.target_field[0] = [x, y, 0]
         
     def _update_camera(self) -> None:
-        self.camera.track_user_inputs(self.window, movement_speed=0.03, hold_key=ti.ui.RMB)
+        self.camera.track_user_inputs(self.window, movement_speed=1, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
         self.scene.point_light(pos=(0, 0, 100), color=(1, 1, 1))
         
@@ -49,10 +54,13 @@ class Window():
         self.player_swarm.update(dt=0.05, target_pos=target, mode_weight=1.5)
         self.scene.particles(self.player_swarm.get_pos_field(), color=self.PLAYER_COLOR, radius=1.0)
         # self.enemy_swarm.update(dt=0.05, target_pos=target, mode_weight=1.5)
-        #self.scene.particles(self.player_swarm.get_pos_field(), color=self.ENEMY_COLOR, radius=1.0)
+        # self.scene.particles(self.enemy_swarm.get_pos_field(), color=self.ENEMY_COLOR, radius=1.0)
         
     def _update_bourndary(self) -> None:
         self.scene.lines(self.map.get_boundary_field(), color=self.BOURNDARY_COLOR, width=self.BOURNDARY_WIDTH)
+    
+    def _draw_target(self) -> None:
+        self.scene.particles(self.target_field, color=self.TARGET_COLOR, radius=self.TARGET_RADIUS)
         
     def run(self) -> None:
         while self.window.running:
@@ -60,5 +68,6 @@ class Window():
             self._update_camera()
             self._update_bourndary()
             self._update_swarms(self.target)
+            self._draw_target()
             self.canvas.scene(self.scene)
             self.window.show()
