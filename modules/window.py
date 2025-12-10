@@ -13,7 +13,7 @@ class Window():
     BOURNDARY_COLOR = (0.0, 1.0, 0.0)
     BOURNDARY_WIDTH: float = 1.0
     TARGET_COLOR = (1.0, 1.0, 0.0)
-    TARGET_RADIUS: float = 2.0
+    TARGET_RADIUS: float = 3.0
     
     def __init__(self, title="Drone Voronoi Sim", size=(1024, 768)):
         ti.init()
@@ -29,8 +29,7 @@ class Window():
         self.paused: bool = False
         self.show_voronoi: bool = True
         self.show_boundary: bool = True
-        self.drone_count: int = 10
-        self.mode_weight: float = 1.5
+        self.drone_count: int = 20
         self.dt: float = 0.05
         
         
@@ -54,13 +53,10 @@ class Window():
     def _handle_input(self) -> None:
         self.window.get_event()
         if self.window.is_pressed("q"):
-            print("1 pressed")
             self.player_swarm.update_mode(DroneModes.ATTACK)
         elif self.window.is_pressed("e"):
-            print("2 pressed")
             self.player_swarm.update_mode(DroneModes.SPREAD)
         elif self.window.is_pressed("r"):
-            print("3 pressed")
             self.player_swarm.update_mode(DroneModes.PATROL)
 
         if self.window.is_pressed(ti.ui.LMB):
@@ -76,8 +72,7 @@ class Window():
         self.scene.point_light(pos=(0, 0, 100), color=(1, 1, 1))
         
     def _update_swarms(self, target) -> None:
-        self.player_swarm.update(dt=0.05, target_pos=target, mode_weight=1.5)
-        self.scene.particles(self.player_swarm.get_pos_field(), color=self.PLAYER_COLOR, radius=1.0)
+        self.player_swarm.update(dt=0.05, target_pos=target)
         # self.enemy_swarm.update(dt=0.05, target_pos=target, mode_weight=1.5)
         # self.scene.particles(self.enemy_swarm.get_pos_field(), color=self.ENEMY_COLOR, radius=1.0)
         
@@ -108,8 +103,6 @@ class Window():
             self.gui.text("Simulation Speed")
             self.dt = self.gui.slider_float("dt", self.dt, 0.01, 0.2)
             
-            self.gui.text("Target Weight")
-            self.mode_weight = self.gui.slider_float("weight", self.mode_weight, 0.0, 5.0)
             
             # Info
             self.gui.text(f"Drones: {self.player_swarm.N}")
@@ -125,7 +118,7 @@ class Window():
             
             
             if not self.paused:
-                self.player_swarm.update(dt=self.dt, target_pos=self.target, mode_weight=self.mode_weight)
+                self.player_swarm.update(dt=self.dt, target_pos=self.target)
             
             self.scene.particles(self.player_swarm.get_pos_field(), color=self.PLAYER_COLOR, radius=1.0)
             self._update_bourndary()

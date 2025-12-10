@@ -21,6 +21,7 @@ class DroneSwarm:
     separation_modifier: float = 1.5
     alignment_modifier: float = 1.0
     cohesion_modifier: float = 1.0
+    target_weight: float = 1.0
     
     
     def __init__(self, count: int, boundary_size: float) -> None:
@@ -53,10 +54,10 @@ class DroneSwarm:
             
     def get_mode(self) -> DroneModes:   
         return self.mode
-    
-    def get_modifiers(self) -> tuple[float, float, float]:
-        return (self.separation_modifier, self.alignment_modifier, self.cohesion_modifier)
 
+    def get_modifiers(self) -> tuple[float, float, float, float]:
+        return (self.separation_modifier, self.alignment_modifier, self.cohesion_modifier, self.target_weight)
+    
     @ti.func
     def separation(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
@@ -117,19 +118,25 @@ class DroneSwarm:
     
     def update_mode(self, mode: DroneModes) -> None:
         self.mode = mode
-        self.alignment_modifier = 1.0
-        self.separation_modifier = 1.0
-        self.cohesion_modifier = 1.0
         
         if self.mode == DroneModes.ATTACK:
-            self.alignment_modifier = 2
+            self.separation_modifier = 0.2
+            self.alignment_modifier = 10
+            self.cohesion_modifier = 2.0
+            self.target_weight = 5.0
         elif self.mode == DroneModes.SPREAD:
-            self.separation_modifier = 2
+            self.separation_modifier = 10
+            self.alignment_modifier = 0.1
+            self.cohesion_modifier = 0.1
+            self.target_weight = 0.5
         elif self.mode == DroneModes.PATROL:
-            self.cohesion_modifier = 2
+            self.separation_modifier = 10.0
+            self.alignment_modifier = 2.0
+            self.cohesion_modifier = 0.1
+            self.target_weight = 0.5
 
     @ti.kernel
-    def update(self, dt: ti.f32, target_pos: ti.types.vector(2, ti.f32), mode_weight: ti.f32):
+    def update(self, dt: ti.f32, target_pos: ti.types.vector(2, ti.f32)):
         for i in range(self.N):
             if self.active[i] == 0:
                 continue
@@ -184,7 +191,7 @@ class DroneSwarm:
             # Steering towards target (2D - only x and y)
             target_3d = ti.Vector([target_pos.x, target_pos.y, self.pos[i].z])
             direction = (target_3d - self.pos[i]).normalized()
-            self.acc[i] += direction * mode_weight
+            self.acc[i] += direction * self.target_weight
 
             # Physics integration
             self.vel[i] += self.acc[i] * dt
