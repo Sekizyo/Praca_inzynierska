@@ -18,17 +18,33 @@ class DroneSwarm:
     perception_radius: float = 40.0
     height: float = 50.0
     mode: DroneModes = DroneModes.SPREAD
+    projectile_speed: float = 50.0
+    shoot_range: float = 25.0
+    shoot_cooldown: float = 3.0
+    hit_radius: float = 2.0
+    max_health: float = 100.0
+    projectile_damage: float = 10.0
+    projectile_max_lifetime: float = 2.0
     
     
-    def __init__(self, count: int, boundary_size: float) -> None:
+    def __init__(self, count: int, boundary_size: float, team: int = 0) -> None:
         self.N: int = count
         self.boundary: float = boundary_size
+        self.team: int = team
         
         self.pos: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         self.vel: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         self.acc: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         
         self.active: Field = ti.field(dtype=ti.i32, shape=self.N)
+        self.health: Field = ti.field(dtype=ti.f32, shape=self.N)
+        self.cooldown: Field = ti.field(dtype=ti.f32, shape=self.N)
+        
+        self.max_projectiles: int = count * 10
+        self.projectile_pos: MatrixField = Vector.field(3, dtype=f32, shape=self.max_projectiles)
+        self.projectile_vel: MatrixField = Vector.field(3, dtype=f32, shape=self.max_projectiles)
+        self.projectile_active: Field = ti.field(dtype=ti.i32, shape=self.max_projectiles)
+        self.projectile_lifetime: Field = ti.field(dtype=ti.f32, shape=self.max_projectiles)
         
         # Modifiers as Taichi fields
         self.separation_modifier = ti.field(dtype=ti.f32, shape=())
@@ -36,7 +52,6 @@ class DroneSwarm:
         self.cohesion_modifier = ti.field(dtype=ti.f32, shape=())
         self.target_weight = ti.field(dtype=ti.f32, shape=())
         
-        # Initialize default values
         self.separation_modifier[None] = 5.0
         self.alignment_modifier[None] = 0.1
         self.cohesion_modifier[None] = 0.1
@@ -59,6 +74,12 @@ class DroneSwarm:
             ]
             
             self.active[i] = 1
+            self.health[i] = self.max_health
+            self.cooldown[i] = 0.0
+        
+        for i in range(self.max_projectiles):
+            self.projectile_active[i] = 0
+            self.projectile_lifetime[i] = 0.0
             
     def get_mode(self) -> DroneModes:   
         return self.mode
@@ -209,7 +230,85 @@ class DroneSwarm:
                 self.vel[i] = self.vel[i].normalized() * self.max_speed
             
             self.pos[i] += self.vel[i] * dt
+            
+            if self.cooldown[i] > 0.0:
+                self.cooldown[i] -= dt
+
+    @ti.kernel
+    def shoot(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
+        for i in range(self.N):
+            if self.active[i] == 0 or self.cooldown[i] > 0.0:
+                continue
+            
+            min_dist = ti.cast(1e10, ti.f32)
+            target_idx = -1
+            
+            for j in range(enemy_count):
+                if enemy_health[j] <= 0.0:
+                    continue
+                dist = (self.pos[i] - enemy_pos[j]).norm()
+                if dist < self.shoot_range and dist < min_dist:
+                    min_dist = dist
+                    target_idx = j
+            
+            if target_idx >= 0:
+                for p in range(self.max_projectiles):
+                    if self.projectile_active[p] == 0:
+                        direction = (enemy_pos[target_idx] - self.pos[i]).normalized()
+                        self.projectile_pos[p] = self.pos[i]
+                        self.projectile_vel[p] = direction * self.projectile_speed
+                        self.projectile_active[p] = 1
+                        self.projectile_lifetime[p] = self.projectile_max_lifetime
+                        self.cooldown[i] = self.shoot_cooldown
+                        break
+
+    @ti.kernel
+    def update_projectiles(self, dt: ti.f32):
+        for i in range(self.max_projectiles):
+            if self.projectile_active[i] == 0:
+                continue
+            
+            self.projectile_pos[i] += self.projectile_vel[i] * dt
+            self.projectile_lifetime[i] -= dt
+            
+            if self.projectile_lifetime[i] <= 0.0:
+                self.projectile_active[i] = 0
+            
+            if self.projectile_pos[i].x > self.boundary or self.projectile_pos[i].x < -self.boundary:
+                self.projectile_active[i] = 0
+            if self.projectile_pos[i].y > self.boundary or self.projectile_pos[i].y < -self.boundary:
+                self.projectile_active[i] = 0
+            if self.projectile_pos[i].z > self.height or self.projectile_pos[i].z < 0.0:
+                self.projectile_active[i] = 0
+
+    @ti.kernel
+    def check_hits(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
+        for i in range(self.max_projectiles):
+            if self.projectile_active[i] == 0:
+                continue
+            
+            for j in range(enemy_count):
+                if enemy_health[j] <= 0.0:
+                    continue
+                
+                dist = (self.projectile_pos[i] - enemy_pos[j]).norm()
+                if dist < self.hit_radius:
+                    self.projectile_active[i] = 0
+                    ti.atomic_add(enemy_health[j], -self.projectile_damage)
+                    break
+    
+    @ti.kernel
+    def update_health(self):
+        for i in range(self.N):
+            if self.health[i] <= 0.0:
+                self.active[i] = 0
 
     def get_pos_field(self) -> MatrixField:
         return self.pos
+    
+    def get_projectile_pos_field(self) -> MatrixField:
+        return self.projectile_pos
+    
+    def get_projectile_active_field(self) -> Field:
+        return self.projectile_active
         

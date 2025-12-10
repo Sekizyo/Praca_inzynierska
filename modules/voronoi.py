@@ -1,5 +1,5 @@
 import taichi as ti
-from taichi import MatrixField
+from taichi import MatrixField, Field
 
 
 @ti.data_oriented
@@ -29,7 +29,7 @@ class VoronoiDiagram:
 
     
     @ti.kernel
-    def compute_voronoi(self, player_pos: ti.template(), player_count: ti.i32, enemy_pos: ti.template(), enemy_count: ti.i32):
+    def compute_voronoi(self, player_pos: ti.template(), player_count: ti.i32, player_health: ti.template(), enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
         res = self.resolution
         B = self.boundary
         
@@ -52,6 +52,8 @@ class VoronoiDiagram:
             is_player = 0
             
             for k in range(player_count):
+                if player_health[k] <= 0.0:
+                    continue
                 dx = player_pos[k].x - cx
                 dy = player_pos[k].y - cy
                 dist = ti.sqrt(dx * dx + dy * dy)
@@ -60,6 +62,8 @@ class VoronoiDiagram:
                     is_player = 1
             
             for k in range(enemy_count):
+                if enemy_health[k] <= 0.0:
+                    continue
                 dx = enemy_pos[k].x - cx
                 dy = enemy_pos[k].y - cy
                 dist = ti.sqrt(dx * dx + dy * dy)
@@ -83,8 +87,8 @@ class VoronoiDiagram:
             for v in range(6):
                 self.colors[vert_idx + v] = color
     
-    def update(self, player_pos: MatrixField, player_count: int, enemy_pos: MatrixField, enemy_count: int) -> float:
-        self.compute_voronoi(player_pos, player_count, enemy_pos, enemy_count)
+    def update(self, player_pos: MatrixField, player_count: int, player_health: Field, enemy_pos: MatrixField, enemy_count: int, enemy_health: Field) -> float:
+        self.compute_voronoi(player_pos, player_count, player_health, enemy_pos, enemy_count, enemy_health)
         return (self.player_cells[None] / self.total_cells[None]) * 100.0
     
     def get_vertices(self) -> MatrixField:
