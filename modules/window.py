@@ -27,10 +27,11 @@ class Window():
         
         # GUI state
         self.paused: bool = False
-        self.show_voronoi: bool = True
+        self.show_voronoi: bool = False
         self.show_boundary: bool = True
         self.drone_count: int = 20
         self.dt: float = 0.05
+        self.player_territory: float = 0.0
         
         
         self._init_camera()
@@ -43,7 +44,7 @@ class Window():
     
     def _init_swarms(self) -> None:
         self.player_swarm = DroneSwarm(count=self.drone_count, boundary_size=self.map_size)
-        # self.enemy_swarm = DroneSwarm(count=self.drone_count, boundary_size=self.map_size)
+        self.enemy_swarm = DroneSwarm(count=self.drone_count, boundary_size=self.map_size)
         self.target = ti.Vector([0.0, 0.0])
         self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.target_field[0] = [0.0, 0.0, 0.0]
@@ -70,11 +71,16 @@ class Window():
         self.camera.track_user_inputs(self.window, movement_speed=1, hold_key=ti.ui.RMB)
         self.scene.set_camera(self.camera)
         self.scene.point_light(pos=(0, 0, 100), color=(1, 1, 1))
+
+    def _update_swarms(self) -> None:
+        if self.paused:
+            return 
+
+        self.player_swarm.update(dt=0.05, target_pos=self.target)
+        self.enemy_swarm.update(dt=0.05, target_pos=(0,0))
         
-    def _update_swarms(self, target) -> None:
-        self.player_swarm.update(dt=0.05, target_pos=target)
-        # self.enemy_swarm.update(dt=0.05, target_pos=target, mode_weight=1.5)
-        # self.scene.particles(self.enemy_swarm.get_pos_field(), color=self.ENEMY_COLOR, radius=1.0)
+        self.scene.particles(self.player_swarm.get_pos_field(), color=self.PLAYER_COLOR, radius=1.0)
+        self.scene.particles(self.enemy_swarm.get_pos_field(), color=self.ENEMY_COLOR, radius=1.0)
         
     def _update_bourndary(self) -> None:
         if self.show_boundary:
@@ -84,8 +90,13 @@ class Window():
         self.scene.particles(self.target_field, color=self.TARGET_COLOR, radius=self.TARGET_RADIUS)
     
     def _draw_voronoi(self) -> None:
+        self.player_territory = self.voronoi.update(
+            self.player_swarm.get_pos_field(), 
+            self.player_swarm.N,
+            self.enemy_swarm.get_pos_field(),
+            self.enemy_swarm.N
+        )
         if self.show_voronoi:
-            self.voronoi.update(self.player_swarm.get_pos_field(), self.player_swarm.N)
             self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
     
     def _draw_gui(self) -> None:
@@ -103,24 +114,19 @@ class Window():
             self.gui.text("Simulation Speed")
             self.dt = self.gui.slider_float("dt", self.dt, 0.01, 0.2)
             
-            
             # Info
             self.gui.text(f"Drones: {self.player_swarm.N}")
             self.gui.text(f"Target: ({self.target[0]:.1f}, {self.target[1]:.1f})")
             self.gui.text(f"Mode: {self.player_swarm.get_mode()}")
             self.gui.text(f"Modifiers: {self.player_swarm.get_modifiers()}")
+            self.gui.text(f"Territory: {self.player_territory:.1f}%")
             
 
     def run(self) -> None:
         while self.window.running:
             self._handle_input()
             self._update_camera()
-            
-            
-            if not self.paused:
-                self.player_swarm.update(dt=self.dt, target_pos=self.target)
-            
-            self.scene.particles(self.player_swarm.get_pos_field(), color=self.PLAYER_COLOR, radius=1.0)
+            self._update_swarms()
             self._update_bourndary()
             self._draw_voronoi()
             self._draw_target()

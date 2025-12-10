@@ -134,9 +134,9 @@ class DroneSwarm:
             self.target_weight[None] = 1.0
         elif self.mode == DroneModes.SPREAD:
             self.separation_modifier[None] = 10.0
-            self.alignment_modifier[None] = 0.1
-            self.cohesion_modifier[None] = 0.1
-            self.target_weight[None] = 0.2
+            self.alignment_modifier[None] = 0.2
+            self.cohesion_modifier[None] = 0.2
+            self.target_weight[None] = 0.3
         elif self.mode == DroneModes.PATROL:
             self.separation_modifier[None] = 2
             self.alignment_modifier[None] = 2.0
