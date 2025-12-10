@@ -1,8 +1,15 @@
+from enum import Enum
 import taichi as ti
 import random
 
 from taichi import Vector, Field, MatrixField, data_oriented, func
 from taichi.types import vector, f32, i32
+
+class DroneModes(str, Enum):
+    ATTACK = "attack"
+    SPREAD = "spread"
+    PATROL = "patrol"
+
 
 @data_oriented
 class DroneSwarm:
@@ -10,6 +17,11 @@ class DroneSwarm:
     max_force: float = 0.5
     perception_radius: float = 40.0
     height: float = 50.0
+    mode: DroneModes = DroneModes.SPREAD
+    separation_modifier: float = 1.5
+    alignment_modifier: float = 1.0
+    cohesion_modifier: float = 1.0
+    
     
     def __init__(self, count: int, boundary_size: float) -> None:
         self.N: int = count
@@ -38,6 +50,12 @@ class DroneSwarm:
             ]
             
             self.active[i] = 1
+            
+    def get_mode(self) -> DroneModes:   
+        return self.mode
+    
+    def get_modifiers(self) -> tuple[float, float, float]:
+        return (self.separation_modifier, self.alignment_modifier, self.cohesion_modifier)
 
     @ti.func
     def separation(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
@@ -96,6 +114,19 @@ class DroneSwarm:
             if steering.norm() > self.max_force:
                 steering = steering.normalized() * self.max_force
         return steering
+    
+    def update_mode(self, mode: DroneModes) -> None:
+        self.mode = mode
+        self.alignment_modifier = 1.0
+        self.separation_modifier = 1.0
+        self.cohesion_modifier = 1.0
+        
+        if self.mode == DroneModes.ATTACK:
+            self.alignment_modifier = 2
+        elif self.mode == DroneModes.SPREAD:
+            self.separation_modifier = 2
+        elif self.mode == DroneModes.PATROL:
+            self.cohesion_modifier = 2
 
     @ti.kernel
     def update(self, dt: ti.f32, target_pos: ti.types.vector(2, ti.f32), mode_weight: ti.f32):
@@ -109,17 +140,46 @@ class DroneSwarm:
             ali = self.alignment(i)
             coh = self.cohesion(i)
             
-            self.acc[i] += sep * 1.5
-            self.acc[i] += ali * 1.0
-            self.acc[i] += coh * 1.0
+            self.acc[i] += sep * self.separation_modifier
+            self.acc[i] += ali * self.alignment_modifier
+            self.acc[i] += coh * self.cohesion_modifier
             
-            # Boundary constraints
-            if self.pos[i].x > self.boundary: self.acc[i].x -= self.max_force * 2
-            if self.pos[i].x < -self.boundary: self.acc[i].x += self.max_force * 2
-            if self.pos[i].y > self.boundary: self.acc[i].y -= self.max_force * 2
-            if self.pos[i].y < -self.boundary: self.acc[i].y += self.max_force * 2
-            if self.pos[i].z > self.height: self.acc[i].z -= self.max_force * 2
-            if self.pos[i].z < 0.0: self.acc[i].z += self.max_force * 5
+            # Boundary constraints - soft walls with stronger force
+            boundary_force = self.max_force * 5.0
+            margin = 10.0  # Distance from boundary where force starts
+            
+            if self.pos[i].x > self.boundary - margin:
+                self.acc[i].x -= boundary_force * (self.pos[i].x - (self.boundary - margin)) / margin
+            if self.pos[i].x < -self.boundary + margin:
+                self.acc[i].x += boundary_force * ((-self.boundary + margin) - self.pos[i].x) / margin
+            if self.pos[i].y > self.boundary - margin:
+                self.acc[i].y -= boundary_force * (self.pos[i].y - (self.boundary - margin)) / margin
+            if self.pos[i].y < -self.boundary + margin:
+                self.acc[i].y += boundary_force * ((-self.boundary + margin) - self.pos[i].y) / margin
+            if self.pos[i].z > self.height - margin:
+                self.acc[i].z -= boundary_force * (self.pos[i].z - (self.height - margin)) / margin
+            if self.pos[i].z < margin:
+                self.acc[i].z += boundary_force * (margin - self.pos[i].z) / margin
+            
+            # Hard clamp - prevent going outside boundaries
+            if self.pos[i].x > self.boundary:
+                self.pos[i].x = self.boundary
+                self.vel[i].x = 0.0
+            if self.pos[i].x < -self.boundary:
+                self.pos[i].x = -self.boundary
+                self.vel[i].x = 0.0
+            if self.pos[i].y > self.boundary:
+                self.pos[i].y = self.boundary
+                self.vel[i].y = 0.0
+            if self.pos[i].y < -self.boundary:
+                self.pos[i].y = -self.boundary
+                self.vel[i].y = 0.0
+            if self.pos[i].z > self.height:
+                self.pos[i].z = self.height
+                self.vel[i].z = 0.0
+            if self.pos[i].z < 0.0:
+                self.pos[i].z = 0.0
+                self.vel[i].z = 0.0
             
             # Steering towards target (2D - only x and y)
             target_3d = ti.Vector([target_pos.x, target_pos.y, self.pos[i].z])
