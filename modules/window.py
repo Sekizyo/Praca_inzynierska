@@ -40,7 +40,7 @@ class Window():
         self._init_swarms()
         
     def _init_camera(self) -> None:
-        self.camera.position(0, 0, self.map_size)
+        self.camera.position(0, 0, self.map_size*2)
         self.camera.lookat(0, 0, 0)
         self.camera.up(0, 1, 0)
     
