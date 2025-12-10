@@ -18,10 +18,6 @@ class DroneSwarm:
     perception_radius: float = 40.0
     height: float = 50.0
     mode: DroneModes = DroneModes.SPREAD
-    separation_modifier: float = 1.5
-    alignment_modifier: float = 1.0
-    cohesion_modifier: float = 1.0
-    target_weight: float = 1.0
     
     
     def __init__(self, count: int, boundary_size: float) -> None:
@@ -33,6 +29,18 @@ class DroneSwarm:
         self.acc: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         
         self.active: Field = ti.field(dtype=ti.i32, shape=self.N)
+        
+        # Modifiers as Taichi fields
+        self.separation_modifier = ti.field(dtype=ti.f32, shape=())
+        self.alignment_modifier = ti.field(dtype=ti.f32, shape=())
+        self.cohesion_modifier = ti.field(dtype=ti.f32, shape=())
+        self.target_weight = ti.field(dtype=ti.f32, shape=())
+        
+        # Initialize default values
+        self.separation_modifier[None] = 5.0
+        self.alignment_modifier[None] = 0.1
+        self.cohesion_modifier[None] = 0.1
+        self.target_weight[None] = 0.5
         
         self._initialize()
 
@@ -56,7 +64,7 @@ class DroneSwarm:
         return self.mode
 
     def get_modifiers(self) -> tuple[float, float, float, float]:
-        return (self.separation_modifier, self.alignment_modifier, self.cohesion_modifier, self.target_weight)
+        return (self.separation_modifier[None], self.alignment_modifier[None], self.cohesion_modifier[None], self.target_weight[None])
     
     @ti.func
     def separation(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
@@ -120,20 +128,20 @@ class DroneSwarm:
         self.mode = mode
         
         if self.mode == DroneModes.ATTACK:
-            self.separation_modifier = 0.2
-            self.alignment_modifier = 10
-            self.cohesion_modifier = 2.0
-            self.target_weight = 5.0
+            self.separation_modifier[None] = 3
+            self.alignment_modifier[None] = 2.0
+            self.cohesion_modifier[None] = 1.0
+            self.target_weight[None] = 1.0
         elif self.mode == DroneModes.SPREAD:
-            self.separation_modifier = 10
-            self.alignment_modifier = 0.1
-            self.cohesion_modifier = 0.1
-            self.target_weight = 0.5
+            self.separation_modifier[None] = 10.0
+            self.alignment_modifier[None] = 0.1
+            self.cohesion_modifier[None] = 0.1
+            self.target_weight[None] = 0.2
         elif self.mode == DroneModes.PATROL:
-            self.separation_modifier = 10.0
-            self.alignment_modifier = 2.0
-            self.cohesion_modifier = 0.1
-            self.target_weight = 0.5
+            self.separation_modifier[None] = 2
+            self.alignment_modifier[None] = 2.0
+            self.cohesion_modifier[None] = 3.0
+            self.target_weight[None] = 1.0
 
     @ti.kernel
     def update(self, dt: ti.f32, target_pos: ti.types.vector(2, ti.f32)):
@@ -147,9 +155,9 @@ class DroneSwarm:
             ali = self.alignment(i)
             coh = self.cohesion(i)
             
-            self.acc[i] += sep * self.separation_modifier
-            self.acc[i] += ali * self.alignment_modifier
-            self.acc[i] += coh * self.cohesion_modifier
+            self.acc[i] += sep * self.separation_modifier[None]
+            self.acc[i] += ali * self.alignment_modifier[None]
+            self.acc[i] += coh * self.cohesion_modifier[None]
             
             # Boundary constraints - soft walls with stronger force
             boundary_force = self.max_force * 5.0
@@ -191,7 +199,7 @@ class DroneSwarm:
             # Steering towards target (2D - only x and y)
             target_3d = ti.Vector([target_pos.x, target_pos.y, self.pos[i].z])
             direction = (target_3d - self.pos[i]).normalized()
-            self.acc[i] += direction * self.target_weight
+            self.acc[i] += direction * self.target_weight[None]
 
             # Physics integration
             self.vel[i] += self.acc[i] * dt
