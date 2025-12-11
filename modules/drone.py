@@ -297,6 +297,51 @@ class DroneSwarm:
         for i in range(self.N):
             if self.health[i] <= 0.0:
                 self.active[i] = 0
+    
+    @ti.kernel
+    def compute_range_circles(self, circle_segments: ti.template(), segments_per_circle: ti.i32):
+        for i in range(self.N):
+            if self.active[i] == 0:
+                continue
+            
+            for seg in range(segments_per_circle):
+                angle1 = (ti.cast(seg, ti.f32) / segments_per_circle) * 2.0 * 3.14159265359
+                angle2 = (ti.cast(seg + 1, ti.f32) / segments_per_circle) * 2.0 * 3.14159265359
+                mid_angle = (angle1 + angle2) * 0.5
+                
+                x_point = self.pos[i].x + self.shoot_range * ti.cos(mid_angle)
+                y_point = self.pos[i].y + self.shoot_range * ti.sin(mid_angle)
+                
+                is_inside_other = 0
+                
+                for j in range(self.N):
+                    if i == j or self.active[j] == 0:
+                        continue
+                    
+                    dx = x_point - self.pos[j].x
+                    dy = y_point - self.pos[j].y
+                    dist_to_center = ti.sqrt(dx * dx + dy * dy)
+                    
+                    if dist_to_center < self.shoot_range - 0.1:
+                        is_inside_other = 1
+                        break
+                
+                idx = i * segments_per_circle * 2 + seg * 2
+                
+                if is_inside_other == 0:
+                    x1 = self.pos[i].x + self.shoot_range * ti.cos(angle1)
+                    y1 = self.pos[i].y + self.shoot_range * ti.sin(angle1)
+                    z1 = 0.0
+                    
+                    x2 = self.pos[i].x + self.shoot_range * ti.cos(angle2)
+                    y2 = self.pos[i].y + self.shoot_range * ti.sin(angle2)
+                    z2 = 0.0
+                    
+                    circle_segments[idx] = ti.Vector([x1, y1, z1])
+                    circle_segments[idx + 1] = ti.Vector([x2, y2, z2])
+                else:
+                    circle_segments[idx] = ti.Vector([0.0, 0.0, -1000.0])
+                    circle_segments[idx + 1] = ti.Vector([0.0, 0.0, -1000.0])
 
     def get_pos_field(self) -> MatrixField:
         return self.pos

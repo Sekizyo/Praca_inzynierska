@@ -8,10 +8,12 @@ from modules.colors import TARGET_COLOR
 class Swarms():
     PROJECTILE_RADIUS: float = 0.5
     TARGET_RADIUS: float = 1.0
+    SEGMENTS_PER_CIRCLE: int = 1024
     
     def __init__(self, scene: SceneV2, drone_count: int, map_size: float) -> None:
         self.scene = scene
         self.map_size = map_size
+        self.drone_count = drone_count
         self.player_swarm = DroneSwarm(count=drone_count, boundary_size=map_size, team=0)
         self.enemy_swarm = DroneSwarm(count=drone_count, boundary_size=map_size, team=1)
         self._init_swarms()
@@ -24,6 +26,10 @@ class Swarms():
         self.enemy_target = ti.Vector([0.0, 0.0])
         self.enemy_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.enemy_target_field[0] = [250.0, 0.0, 0.0]
+        
+        max_segments = self.drone_count * self.SEGMENTS_PER_CIRCLE * 2
+        self.player_range_circles = ti.Vector.field(3, dtype=ti.f32, shape=max_segments)
+        self.enemy_range_circles = ti.Vector.field(3, dtype=ti.f32, shape=max_segments)
         
     def _update_logic(self, dt: float) -> None:
         self.player_swarm.update(dt=dt, target_pos=self.player_target_field)
@@ -42,6 +48,12 @@ class Swarms():
         self.enemy_swarm.update_health()
         
     def _draw(self) -> None:
+        self.player_swarm.compute_range_circles(self.player_range_circles, self.SEGMENTS_PER_CIRCLE)
+        self.enemy_swarm.compute_range_circles(self.enemy_range_circles, self.SEGMENTS_PER_CIRCLE)
+        
+        self.scene.lines(self.player_range_circles, color=PLAYER_COLOR, width=2.0)
+        self.scene.lines(self.enemy_range_circles, color=ENEMY_COLOR, width=2.0)
+        
         self.scene.particles(self.player_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
         self.scene.particles(self.enemy_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
         
