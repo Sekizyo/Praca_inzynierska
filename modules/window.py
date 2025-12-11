@@ -4,17 +4,12 @@ from modules.map import Map
 from modules.voronoi import VoronoiDiagram
 from taichi.ui.window import Window as TWindow
 from taichi.ui import Canvas, Camera
-
+from modules.colors import PLAYER_COLOR, ENEMY_COLOR, BOURNDARY_COLOR, TARGET_COLOR, PROJECTILE_COLOR
 
 
 class Window():
-    PLAYER_COLOR = (1.0, 0.2, 0.2)
-    ENEMY_COLOR = (0.2, 0.2, 1.0)
-    BOURNDARY_COLOR = (0.0, 1.0, 0.0)
     BOURNDARY_WIDTH: float = 1.0
-    TARGET_COLOR = (1.0, 1.0, 0.0)
     TARGET_RADIUS: float = 3.0
-    PROJECTILE_COLOR = (1.0, 1.0, 1.0)
     PROJECTILE_RADIUS: float = 0.5
     
     def __init__(self, title="Drone Voronoi Sim", size=(1024, 768)):
@@ -76,10 +71,10 @@ class Window():
         
     def _update_bourndary(self) -> None:
         if self.show_boundary:
-            self.scene.lines(self.map.get_boundary_field(), color=self.BOURNDARY_COLOR, width=self.BOURNDARY_WIDTH)
+            self.scene.lines(self.map.get_boundary_field(), color=BOURNDARY_COLOR, width=self.BOURNDARY_WIDTH)
     
     def _draw_target(self) -> None:
-        self.scene.particles(self.target_field, color=self.TARGET_COLOR, radius=self.TARGET_RADIUS)
+        self.scene.particles(self.target_field, color=TARGET_COLOR, radius=self.TARGET_RADIUS)
     
     def _draw_voronoi(self) -> None:
         self.player_territory = self.voronoi.update(
@@ -137,11 +132,11 @@ class Window():
                 self.player_swarm.update_health()
                 self.enemy_swarm.update_health()
             
-            self.scene.particles(self.player_swarm.get_pos_field(), color=self.PLAYER_COLOR, radius=1.0)
-            self.scene.particles(self.enemy_swarm.get_pos_field(), color=self.ENEMY_COLOR, radius=1.0)
+            self.scene.particles(self.player_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
+            self.scene.particles(self.enemy_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
             
-            self.scene.particles(self.player_swarm.get_projectile_pos_field(), color=self.PROJECTILE_COLOR, radius=self.PROJECTILE_RADIUS)
-            self.scene.particles(self.enemy_swarm.get_projectile_pos_field(), color=self.PROJECTILE_COLOR, radius=self.PROJECTILE_RADIUS)
+            self.scene.particles(self.player_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=self.PROJECTILE_RADIUS)
+            self.scene.particles(self.enemy_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=self.PROJECTILE_RADIUS)
             
             self._update_bourndary()
             self._draw_voronoi()
