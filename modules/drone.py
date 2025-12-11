@@ -160,7 +160,7 @@ class DroneSwarm:
             self.target_weight[None] = 1.0
 
     @ti.kernel
-    def update(self, dt: ti.f32, target_pos: ti.types.vector(2, ti.f32)):
+    def update(self, dt: ti.f32, target_pos: ti.template()):
         for i in range(self.N):
             if self.active[i] == 0:
                 continue
@@ -213,7 +213,7 @@ class DroneSwarm:
                 self.vel[i].z = 0.0
             
             # Steering towards target (2D - only x and y)
-            target_3d = ti.Vector([target_pos.x, target_pos.y, self.pos[i].z])
+            target_3d = ti.Vector([target_pos[0][0], target_pos[0][1], 0.0])
             direction = (target_3d - self.pos[i]).normalized()
             self.acc[i] += direction * self.target_weight[None]
 

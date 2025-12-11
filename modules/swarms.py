@@ -26,11 +26,11 @@ class Swarms():
         self.enemy_target_field[0] = [250.0, 0.0, 0.0]
         
     def _update_logic(self, dt: float) -> None:
-        self.player_swarm.update(dt=dt, target_pos=self.player_target)
-        self.enemy_swarm.update(dt=dt, target_pos=self.enemy_target)
+        self.player_swarm.update(dt=dt, target_pos=self.player_target_field)
+        self.enemy_swarm.update(dt=dt, target_pos=self.enemy_target_field)
         
-        self.player_swarm.shoot(self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
-        self.enemy_swarm.shoot(self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
+        # self.player_swarm.shoot(self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
+        # self.enemy_swarm.shoot(self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
         
         self.player_swarm.update_projectiles(dt=dt)
         self.enemy_swarm.update_projectiles(dt=dt)

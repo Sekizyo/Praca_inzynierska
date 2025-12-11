@@ -28,7 +28,7 @@ class GUI():
         self.swarms: Swarms = Swarms(self.scene, self.drone_count, self.MAP_SIZE)
         self.map = Map(self.scene, self.MAP_SIZE)
         
-        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=200)
+        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=20)
 
         self._init_camera()
         
