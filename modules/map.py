@@ -1,15 +1,18 @@
 from taichi import MatrixField
 import taichi as ti
+from taichi.ui.scene import SceneV2
 
+from modules.colors import BOURNDARY_COLOR
 
 class Map:
-    def __init__(self, boundary: float = 100.0) -> None:
+    def __init__(self, scene: SceneV2, boundary: float) -> None:
+        self.scene: SceneV2 = scene
         self.boundary: float = boundary
         self.height: float = boundary
         self.boundary_lines: MatrixField = ti.Vector.field(3, dtype=ti.f32, shape=24)
-        self.init_boundary_lines()
+        self._init_boundary_lines()
 
-    def init_boundary_lines(self) -> None:
+    def _init_boundary_lines(self) -> None:
         B: float = self.boundary
         H: float = self.height
         lines = [
@@ -32,6 +35,5 @@ class Map:
         for i in range(24):
             self.boundary_lines[i] = lines[i]
             
-    
-    def get_boundary_field(self) -> MatrixField:
-        return self.boundary_lines
+    def draw_boundary(self) -> None:
+        self.scene.lines(self.boundary_lines, color=BOURNDARY_COLOR, width=1.0)

@@ -1,15 +1,9 @@
-from enum import Enum
 import taichi as ti
 import random
 
 from taichi import Vector, Field, MatrixField, data_oriented, func
 from taichi.types import vector, f32, i32
-
-class DroneModes(str, Enum):
-    ATTACK = "attack"
-    SPREAD = "spread"
-    PATROL = "patrol"
-
+from modules.constants import DroneModes
 
 @data_oriented
 class DroneSwarm:
@@ -19,12 +13,13 @@ class DroneSwarm:
     height: float = 50.0
     mode: DroneModes = DroneModes.SPREAD
     projectile_speed: float = 50.0
-    shoot_range: float = 25.0
+    shoot_range: float = 50.0
     shoot_cooldown: float = 3.0
     hit_radius: float = 2.0
     max_health: float = 100.0
-    projectile_damage: float = 10.0
+    projectile_damage: float = 25.0
     projectile_max_lifetime: float = 2.0
+    projectile_radius: float = 0.5
     
     
     def __init__(self, count: int, boundary_size: float, team: int = 0) -> None:
