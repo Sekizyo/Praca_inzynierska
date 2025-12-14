@@ -4,6 +4,7 @@ import random
 from taichi import Vector, Field, MatrixField, data_oriented, func
 from taichi.types import vector, f32, i32
 from modules.constants import DroneModes
+from modules.gui_utils import GuiState
 
 @data_oriented
 class DroneSwarm:

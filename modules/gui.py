@@ -2,12 +2,11 @@ from taichi.ui.scene import SceneV2
 from taichi.ui.window import Window as TWindow
 from taichi.ui.ui import Gui
 from taichi.ui import Camera, LMB, RMB
-import taichi as ti 
 from modules.map import Map
 from modules.swarms import Swarms
 from modules.constants import DroneModes
 from modules.voronoi import VoronoiDiagram
-
+from modules.gui_utils import GuiState
 
 class GUI():
     MAP_SIZE: float = 100.0
@@ -16,10 +15,7 @@ class GUI():
         self.gui = gui
         self.window = window
         self.scene = scene
-        
-        self.paused: bool = False
-        self.show_voronoi: bool = False
-        self.show_boundary: bool = True
+        self.GuiState: GuiState = GuiState()
         
         self.dt: float = 0.05
         self.drone_count: int = 20
@@ -60,16 +56,17 @@ class GUI():
 
         
     def _update_bourndary(self) -> None:
-        if self.show_boundary:
+        if self.GuiState.SHOW_BOUNDARY:
             self.map.draw_boundary()
             
     def _update_gui(self) -> None:
         with self.gui.sub_window("Controls", 0.01, 0.01, 0.25, 0.4):
-            if self.gui.button("Pause" if not self.paused else "Resume"):
-                self.paused = not self.paused
+            if self.gui.button("Pause" if not self.GuiState.PAUSED else "Resume"):
+                self.GuiState.PAUSED = not self.GuiState.PAUSED
 
-            self.show_voronoi = self.gui.checkbox("Show Voronoi", self.show_voronoi)
-            self.show_boundary = self.gui.checkbox("Show Boundary", self.show_boundary)
+            self.GuiState.SHOW_VORONOI = self.gui.checkbox("Show Voronoi", self.GuiState.SHOW_VORONOI)
+            self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
+            self.GuiState.SHOW_SHOOT_RANGE = self.gui.checkbox("Show Shooting Range", self.GuiState.SHOW_SHOOT_RANGE)
             
             self.gui.text(f"Drones: {self.swarms.get_player_swarm().N}")
             self.gui.text(f"Mode: {self.swarms.get_player_swarm().get_mode()}")
@@ -88,7 +85,7 @@ class GUI():
             enemy_swarm.N,
             enemy_swarm.health
         )
-        if self.show_voronoi:
+        if self.GuiState.SHOW_VORONOI:
             self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
         
     def update(self) -> None:
@@ -96,8 +93,8 @@ class GUI():
         self._update_bourndary()
         self._handle_input()
         
-        if not self.paused:
-            self.swarms.update(self.dt)
+        if not self.GuiState.PAUSED:
+            self.swarms.update(self.dt, self.GuiState)
         
         self._draw_voronoi()
         self._update_gui()

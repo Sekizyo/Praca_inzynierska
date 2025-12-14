@@ -4,6 +4,7 @@ import taichi as ti
 from taichi.ui.scene import SceneV2
 
 from modules.colors import TARGET_COLOR
+from modules.gui_utils import GuiState
 
 class Swarms():
     PROJECTILE_RADIUS: float = 0.5
@@ -47,13 +48,14 @@ class Swarms():
         self.player_swarm.update_health()
         self.enemy_swarm.update_health()
         
-    def _draw(self) -> None:
-        self.player_swarm.compute_range_circles(self.player_range_circles, self.SEGMENTS_PER_CIRCLE)
-        self.enemy_swarm.compute_range_circles(self.enemy_range_circles, self.SEGMENTS_PER_CIRCLE)
+    def _draw(self, gui_state: GuiState) -> None:
+        if gui_state.SHOW_SHOOT_RANGE:
+            self.player_swarm.compute_range_circles(self.player_range_circles, self.SEGMENTS_PER_CIRCLE)
+            self.enemy_swarm.compute_range_circles(self.enemy_range_circles, self.SEGMENTS_PER_CIRCLE)
         
-        self.scene.lines(self.player_range_circles, color=PLAYER_COLOR, width=2.0)
-        self.scene.lines(self.enemy_range_circles, color=ENEMY_COLOR, width=2.0)
-        
+            self.scene.lines(self.player_range_circles, color=PLAYER_COLOR, width=2.0)
+            self.scene.lines(self.enemy_range_circles, color=ENEMY_COLOR, width=2.0)
+            
         self.scene.particles(self.player_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
         self.scene.particles(self.enemy_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
         
@@ -74,6 +76,6 @@ class Swarms():
     def set_player_target(self, x: float, y: float) -> None:
         self.player_target_field[0] = [x, y, 0.0]
         
-    def update(self, dt: float) -> None:
+    def update(self, dt: float, gui_state: GuiState) -> None:
         self._update_logic(dt)
-        self._draw()
+        self._draw(gui_state)
