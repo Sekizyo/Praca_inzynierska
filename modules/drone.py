@@ -21,7 +21,7 @@ class DroneSwarm:
     projectile_damage: float = 25.0
     projectile_max_lifetime: float = 2.0
     projectile_radius: float = 0.5
-    segments_per_circle: int = 512
+    segments_per_circle: int = 64
 
     def __init__(self, count: int, boundary_size: float, team: int = 0) -> None:
         self.N: int = count

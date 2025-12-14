@@ -7,9 +7,6 @@ from modules.colors import TARGET_COLOR
 from modules.gui_utils import GuiState
 
 class Swarms():
-    PROJECTILE_RADIUS: float = 0.5
-    TARGET_RADIUS: float = 1.0
-    
     def __init__(self, scene: SceneV2, drone_count: int, map_size: float) -> None:
         self.scene = scene
         self.map_size = map_size
@@ -54,10 +51,10 @@ class Swarms():
         self.scene.particles(self.player_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
         self.scene.particles(self.enemy_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
         
-        self.scene.particles(self.player_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=self.PROJECTILE_RADIUS)
-        self.scene.particles(self.enemy_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=self.PROJECTILE_RADIUS)
+        self.scene.particles(self.player_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
+        self.scene.particles(self.enemy_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
         
-        self.scene.particles(self.get_player_target(), color=TARGET_COLOR, radius=self.TARGET_RADIUS)
+        self.scene.particles(self.get_player_target(), color=TARGET_COLOR, radius=1.0)
         
     def get_player_swarm(self) -> DroneSwarm:
         return self.player_swarm

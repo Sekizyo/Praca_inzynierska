@@ -96,5 +96,6 @@ class GUI():
         if not self.GuiState.PAUSED:
             self.swarms.update(self.dt, self.GuiState)
         
+        self._update_gui()
         self._draw_voronoi()
         self._update_gui()
