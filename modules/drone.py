@@ -14,15 +14,15 @@ class DroneSwarm:
     height: float = 50.0
     mode: DroneModes = DroneModes.SPREAD
     projectile_speed: float = 50.0
-    shoot_range: float = 50.0
+    shoot_range: float = 25.0
     shoot_cooldown: float = 3.0
     hit_radius: float = 2.0
     max_health: float = 100.0
     projectile_damage: float = 25.0
     projectile_max_lifetime: float = 2.0
     projectile_radius: float = 0.5
-    
-    
+    segments_per_circle: int = 512
+
     def __init__(self, count: int, boundary_size: float, team: int = 0) -> None:
         self.N: int = count
         self.boundary: float = boundary_size
@@ -41,6 +41,9 @@ class DroneSwarm:
         self.projectile_vel: MatrixField = Vector.field(3, dtype=f32, shape=self.max_projectiles)
         self.projectile_active: Field = ti.field(dtype=ti.i32, shape=self.max_projectiles)
         self.projectile_lifetime: Field = ti.field(dtype=ti.f32, shape=self.max_projectiles)
+        
+        max_segments = self.N * self.segments_per_circle * 2
+        self.range_circles = ti.Vector.field(3, dtype=ti.f32, shape=max_segments)
         
         # Modifiers as Taichi fields
         self.separation_modifier = ti.field(dtype=ti.f32, shape=())
@@ -298,16 +301,17 @@ class DroneSwarm:
         for i in range(self.N):
             if self.health[i] <= 0.0:
                 self.active[i] = 0
+                self.pos[i] = ti.Vector([-10000.0, 0.0, 0.0])
     
     @ti.kernel
-    def compute_range_circles(self, circle_segments: ti.template(), segments_per_circle: ti.i32):
+    def compute_range_circles(self):
         for i in range(self.N):
             if self.active[i] == 0:
                 continue
             
-            for seg in range(segments_per_circle):
-                angle1 = (ti.cast(seg, ti.f32) / segments_per_circle) * 2.0 * 3.14159265359
-                angle2 = (ti.cast(seg + 1, ti.f32) / segments_per_circle) * 2.0 * 3.14159265359
+            for seg in range(self.segments_per_circle):
+                angle1 = (ti.cast(seg, ti.f32) / self.segments_per_circle) * 2.0 * 3.14159265359
+                angle2 = (ti.cast(seg + 1, ti.f32) / self.segments_per_circle) * 2.0 * 3.14159265359
                 mid_angle = (angle1 + angle2) * 0.5
                 
                 x_point = self.pos[i].x + self.shoot_range * ti.cos(mid_angle)
@@ -327,7 +331,7 @@ class DroneSwarm:
                         is_inside_other = 1
                         break
                 
-                idx = i * segments_per_circle * 2 + seg * 2
+                idx = i * self.segments_per_circle * 2 + seg * 2
                 
                 if is_inside_other == 0:
                     x1 = self.pos[i].x + self.shoot_range * ti.cos(angle1)
@@ -338,11 +342,14 @@ class DroneSwarm:
                     y2 = self.pos[i].y + self.shoot_range * ti.sin(angle2)
                     z2 = 0.0
                     
-                    circle_segments[idx] = ti.Vector([x1, y1, z1])
-                    circle_segments[idx + 1] = ti.Vector([x2, y2, z2])
+                    self.range_circles[idx] = ti.Vector([x1, y1, z1])
+                    self.range_circles[idx + 1] = ti.Vector([x2, y2, z2])
                 else:
-                    circle_segments[idx] = ti.Vector([0.0, 0.0, -1000.0])
-                    circle_segments[idx + 1] = ti.Vector([0.0, 0.0, -1000.0])
+                    self.range_circles[idx] = ti.Vector([0.0, 0.0, -1000.0])
+                    self.range_circles[idx + 1] = ti.Vector([0.0, 0.0, -1000.0])
+                    
+    def get_range_circles(self) -> MatrixField:
+        return self.range_circles
 
     def get_pos_field(self) -> MatrixField:
         return self.pos

@@ -9,7 +9,6 @@ from modules.gui_utils import GuiState
 class Swarms():
     PROJECTILE_RADIUS: float = 0.5
     TARGET_RADIUS: float = 1.0
-    SEGMENTS_PER_CIRCLE: int = 1024
     
     def __init__(self, scene: SceneV2, drone_count: int, map_size: float) -> None:
         self.scene = scene
@@ -28,15 +27,11 @@ class Swarms():
         self.enemy_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.enemy_target_field[0] = [250.0, 0.0, 0.0]
         
-        max_segments = self.drone_count * self.SEGMENTS_PER_CIRCLE * 2
-        self.player_range_circles = ti.Vector.field(3, dtype=ti.f32, shape=max_segments)
-        self.enemy_range_circles = ti.Vector.field(3, dtype=ti.f32, shape=max_segments)
-        
     def _update_logic(self, dt: float) -> None:
         self.player_swarm.update(dt=dt, target_pos=self.player_target_field)
         self.enemy_swarm.update(dt=dt, target_pos=self.enemy_target_field)
         
-        # self.player_swarm.shoot(self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
+        self.player_swarm.shoot(self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
         # self.enemy_swarm.shoot(self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
         
         self.player_swarm.update_projectiles(dt=dt)
@@ -50,11 +45,11 @@ class Swarms():
         
     def _draw(self, gui_state: GuiState) -> None:
         if gui_state.SHOW_SHOOT_RANGE:
-            self.player_swarm.compute_range_circles(self.player_range_circles, self.SEGMENTS_PER_CIRCLE)
-            self.enemy_swarm.compute_range_circles(self.enemy_range_circles, self.SEGMENTS_PER_CIRCLE)
+            self.player_swarm.compute_range_circles()
+            self.enemy_swarm.compute_range_circles()
         
-            self.scene.lines(self.player_range_circles, color=PLAYER_COLOR, width=2.0)
-            self.scene.lines(self.enemy_range_circles, color=ENEMY_COLOR, width=2.0)
+            self.scene.lines(self.player_swarm.get_range_circles(), color=PLAYER_COLOR, width=2.0)
+            self.scene.lines(self.enemy_swarm.get_range_circles(), color=ENEMY_COLOR, width=2.0)
             
         self.scene.particles(self.player_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
         self.scene.particles(self.enemy_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
