@@ -272,13 +272,17 @@ class DroneSwarm:
             
             if self.projectile_lifetime[i] <= 0.0:
                 self.projectile_active[i] = 0
+                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
             
             if self.projectile_pos[i].x > self.boundary or self.projectile_pos[i].x < -self.boundary:
                 self.projectile_active[i] = 0
+                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
             if self.projectile_pos[i].y > self.boundary or self.projectile_pos[i].y < -self.boundary:
                 self.projectile_active[i] = 0
+                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
             if self.projectile_pos[i].z > self.height or self.projectile_pos[i].z < 0.0:
                 self.projectile_active[i] = 0
+                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
 
     @ti.kernel
     def check_hits(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
@@ -293,6 +297,7 @@ class DroneSwarm:
                 dist = (self.projectile_pos[i] - enemy_pos[j]).norm()
                 if dist < self.hit_radius:
                     self.projectile_active[i] = 0
+                    self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
                     ti.atomic_add(enemy_health[j], -self.projectile_damage)
                     break
     
