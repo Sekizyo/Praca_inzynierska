@@ -11,7 +11,6 @@ class DroneSwarm:
     max_speed: float = 15.0
     max_force: float = 0.5
     perception_radius: float = 40.0
-    height: float = 50.0
     mode: DroneModes = DroneModes.SPREAD
     projectile_speed: float = 50.0
     shoot_range: float = 25.0
@@ -63,7 +62,7 @@ class DroneSwarm:
             self.pos[i] = [
                 (random.random() - 0.5) * self.boundary * 1.5,
                 (random.random() - 0.5) * self.boundary * 1.5,
-                (random.random() - 0.5) * self.boundary * 0.5
+                random.random() * self.boundary * 1.5
             ]
             
             self.vel[i] = [
@@ -85,6 +84,14 @@ class DroneSwarm:
 
     def get_modifiers(self) -> tuple[float, float, float, float]:
         return (self.separation_modifier[None], self.alignment_modifier[None], self.cohesion_modifier[None], self.target_weight[None])
+    
+    @ti.kernel
+    def get_alive_count(self) -> ti.i32:
+        count = 0
+        for i in range(self.N):
+            if self.active[i] == 1:
+                count += 1
+        return count
     
     @ti.func
     def separation(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
@@ -191,8 +198,8 @@ class DroneSwarm:
                 self.acc[i].y -= boundary_force * (self.pos[i].y - (self.boundary - margin)) / margin
             if self.pos[i].y < -self.boundary + margin:
                 self.acc[i].y += boundary_force * ((-self.boundary + margin) - self.pos[i].y) / margin
-            if self.pos[i].z > self.height - margin:
-                self.acc[i].z -= boundary_force * (self.pos[i].z - (self.height - margin)) / margin
+            if self.pos[i].z > self.boundary - margin:
+                self.acc[i].z -= boundary_force * (self.pos[i].z - (self.boundary - margin)) / margin
             if self.pos[i].z < margin:
                 self.acc[i].z += boundary_force * (margin - self.pos[i].z) / margin
             
@@ -209,15 +216,15 @@ class DroneSwarm:
             if self.pos[i].y < -self.boundary:
                 self.pos[i].y = -self.boundary
                 self.vel[i].y = 0.0
-            if self.pos[i].z > self.height:
-                self.pos[i].z = self.height
+            if self.pos[i].z > self.boundary:
+                self.pos[i].z = self.boundary
                 self.vel[i].z = 0.0
             if self.pos[i].z < 0.0:
                 self.pos[i].z = 0.0
                 self.vel[i].z = 0.0
             
             # Steering towards target (2D - only x and y)
-            target_3d = ti.Vector([target_pos[0][0], target_pos[0][1], 0.0])
+            target_3d = ti.Vector([target_pos[0][0], target_pos[0][1], self.boundary//2])
             direction = (target_3d - self.pos[i]).normalized()
             self.acc[i] += direction * self.target_weight[None]
 
@@ -280,7 +287,7 @@ class DroneSwarm:
             if self.projectile_pos[i].y > self.boundary or self.projectile_pos[i].y < -self.boundary:
                 self.projectile_active[i] = 0
                 self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
-            if self.projectile_pos[i].z > self.height or self.projectile_pos[i].z < 0.0:
+            if self.projectile_pos[i].z > self.boundary or self.projectile_pos[i].z < 0.0:
                 self.projectile_active[i] = 0
                 self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
 

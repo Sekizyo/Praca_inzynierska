@@ -16,20 +16,18 @@ class Swarms():
         self._init_swarms()
         
     def _init_swarms(self) -> None:
-        self.player_target = ti.Vector([0.0, 0.0])
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
-        self.player_target_field[0] = [0.0, 0.0, 0.0]
+        self.player_target_field[0] = [-100.0, 0.0, 0.0]
         
-        self.enemy_target = ti.Vector([0.0, 0.0])
         self.enemy_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
-        self.enemy_target_field[0] = [250.0, 0.0, 0.0]
+        self.enemy_target_field[0] = [100.0, 0.0, 0.0]
         
     def _update_logic(self, dt: float) -> None:
         self.player_swarm.update(dt=dt, target_pos=self.player_target_field)
         self.enemy_swarm.update(dt=dt, target_pos=self.enemy_target_field)
         
         self.player_swarm.shoot(self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
-        # self.enemy_swarm.shoot(self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
+        self.enemy_swarm.shoot(self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
         
         self.player_swarm.update_projectiles(dt=dt)
         self.enemy_swarm.update_projectiles(dt=dt)

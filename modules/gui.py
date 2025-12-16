@@ -9,7 +9,7 @@ from modules.voronoi import VoronoiDiagram
 from modules.gui_utils import GuiState
 
 class GUI():
-    MAP_SIZE: float = 100.0
+    MAP_SIZE: float = 400.0
     
     def __init__(self, gui: Gui, window: TWindow, scene: SceneV2) -> None:
         self.gui = gui
@@ -17,14 +17,14 @@ class GUI():
         self.scene = scene
         self.GuiState: GuiState = GuiState()
         
-        self.dt: float = 0.05
-        self.drone_count: int = 20
+        self.dt: float = 0.15
+        self.drone_count: int = 2000
         self.player_territory: float = 0.0
         
         self.swarms: Swarms = Swarms(self.scene, self.drone_count, self.MAP_SIZE)
         self.map = Map(self.scene, self.MAP_SIZE)
         
-        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=20)
+        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=100)
 
         self._init_camera()
         
@@ -35,9 +35,9 @@ class GUI():
         self.camera.up(0, 1, 0)
         
     def _update_camera(self) -> None:
-        self.camera.track_user_inputs(self.window, movement_speed=1, hold_key=RMB)
+        self.camera.track_user_inputs(self.window, movement_speed=3, hold_key=RMB)
         self.scene.set_camera(self.camera)
-        self.scene.point_light(pos=(0, 0, 100), color=(1, 1, 1))
+        self.scene.point_light(pos=(0, 0, self.MAP_SIZE), color=(1, 1, 1))
         
     def _handle_input(self) -> None:
         self.window.get_event()
@@ -68,9 +68,13 @@ class GUI():
             self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
             self.GuiState.SHOW_SHOOT_RANGE = self.gui.checkbox("Show Shooting Range", self.GuiState.SHOW_SHOOT_RANGE)
             
-            self.gui.text(f"Drones: {self.swarms.get_player_swarm().N}")
-            self.gui.text(f"Mode: {self.swarms.get_player_swarm().get_mode()}")
-            self.gui.text(f"Modifiers: {self.swarms.get_player_swarm().get_modifiers()}")
+            player_swarm = self.swarms.get_player_swarm()
+            enemy_swarm = self.swarms.get_enemy_swarm()
+            
+            self.gui.text(f"Player drones: {player_swarm.get_alive_count()}")
+            self.gui.text(f"Enemy drones: {enemy_swarm.get_alive_count()}")
+            self.gui.text(f"Mode: {player_swarm.get_mode()}")
+            self.gui.text(f"Modifiers: {player_swarm.get_modifiers()}")
             self.gui.text(f"Territory: {self.player_territory:.1f}%")
         
     def _draw_voronoi(self) -> None:
@@ -98,4 +102,3 @@ class GUI():
         
         self._update_gui()
         self._draw_voronoi()
-        self._update_gui()
