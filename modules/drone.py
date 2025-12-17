@@ -59,11 +59,18 @@ class DroneSwarm:
 
     def _initialize(self) -> None:
         for i in range(self.N):
-            self.pos[i] = [
-                (random.random() - 0.5) * self.boundary * 1.5,
-                (random.random() - 0.5) * self.boundary * 1.5,
-                random.random() * self.boundary * 1.5
-            ]
+            if self.team == 0:
+                self.pos[i] = [
+                    -random.random() * self.boundary * 1.5,
+                    -random.random() * self.boundary * 1.5,
+                    random.random() * self.boundary * 1.5
+                ]
+            else:
+                self.pos[i] = [
+                    random.random() * self.boundary * 1.5,
+                    random.random() * self.boundary * 1.5,
+                    random.random() * self.boundary * 1.5
+                ]
             
             self.vel[i] = [
                 (random.random() - 0.5) * 5.0,
@@ -223,12 +230,9 @@ class DroneSwarm:
                 self.pos[i].z = 0.0
                 self.vel[i].z = 0.0
             
-            # Steering towards target (2D - only x and y)
-            target_3d = ti.Vector([target_pos[0][0], target_pos[0][1], self.boundary//2])
-            direction = (target_3d - self.pos[i]).normalized()
+            direction = (target_pos[0] - self.pos[i]).normalized()
             self.acc[i] += direction * self.target_weight[None]
 
-            # Physics integration
             self.vel[i] += self.acc[i] * dt
             
             vel_norm = self.vel[i].norm()

@@ -17,7 +17,7 @@ class Swarms():
         
     def _init_swarms(self) -> None:
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
-        self.player_target_field[0] = [-100.0, 0.0, 0.0]
+        self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
         
         self.enemy_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.enemy_target_field[0] = [100.0, 0.0, 0.0]
@@ -64,7 +64,7 @@ class Swarms():
         return self.player_target_field
     
     def set_player_target(self, x: float, y: float) -> None:
-        self.player_target_field[0] = [x, y, 0.0]
+        self.player_target_field[0] = [x, y, 250]
         
     def update(self, dt: float, gui_state: GuiState) -> None:
         self._update_logic(dt)
