@@ -25,6 +25,8 @@ class GUI():
         self.map = Map(self.scene, self.MAP_SIZE)
         
         self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=100)
+        self._voronoi_calls: int = 0
+        self._calc_vornoi_every_n_frames: int = 30
 
         self._init_camera()
         
@@ -78,17 +80,21 @@ class GUI():
             self.gui.text(f"Territory: {self.player_territory:.1f}%")
         
     def _draw_voronoi(self) -> None:
-        player_swarm = self.swarms.get_player_swarm()
-        enemy_swarm = self.swarms.get_enemy_swarm()
-        
-        self.player_territory = self.voronoi.update(
-            player_swarm.get_pos_field(), 
-            player_swarm.N,
-            player_swarm.health,
-            enemy_swarm.get_pos_field(),
-            enemy_swarm.N,
-            enemy_swarm.health
-        )
+        if self._voronoi_calls < self._calc_vornoi_every_n_frames:
+            self._voronoi_calls += 1
+        else:
+            self._voronoi_calls = 0
+            player_swarm = self.swarms.get_player_swarm()
+            enemy_swarm = self.swarms.get_enemy_swarm()
+            
+            self.player_territory = self.voronoi.update(
+                player_swarm.get_pos_field(), 
+                player_swarm.N,
+                player_swarm.health,
+                enemy_swarm.get_pos_field(),
+                enemy_swarm.N,
+                enemy_swarm.health
+            )
         if self.GuiState.SHOW_VORONOI:
             self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
         
