@@ -6,6 +6,8 @@ from taichi.types import vector, f32, i32
 from modules.constants import DroneModes
 from modules.gui_utils import GuiState
 
+from modules.utils import run_every_n_calls
+
 @data_oriented
 class DroneSwarm:
     max_speed: float = 15.0
@@ -55,6 +57,8 @@ class DroneSwarm:
         self.cohesion_modifier[None] = 0.1
         self.target_weight[None] = 0.5
         
+        self._center_cache = [0.0, 0.0, 0.0]
+
         self._initialize()
 
     def _initialize(self) -> None:
@@ -363,6 +367,40 @@ class DroneSwarm:
                 else:
                     self.range_circles[idx] = ti.Vector([0.0, 0.0, -1000.0])
                     self.range_circles[idx + 1] = ti.Vector([0.0, 0.0, -1000.0])
+                    
+    @run_every_n_calls(5)       
+    def get_swarm_center(self) -> list[float]:
+        total_x = total_y = total_z = 0.0
+        count = 0
+        
+        for i in range(self.N):
+            if self.active[i] == 1:
+                total_x += self.pos[i][0]
+                total_y += self.pos[i][1]
+                total_z += self.pos[i][2]
+                count += 1
+        
+        if count > 0:
+            inv_count = 1.0 / count
+            self._center_cache[0] = total_x * inv_count
+            self._center_cache[1] = total_y * inv_count
+            self._center_cache[2] = total_z * inv_count
+        else:
+            self._center_cache[:] = [0.0, 0.0, 0.0]
+        
+        return self._center_cache
+    
+    @run_every_n_calls(5)
+    def get_health_ratio(self) -> float:
+        total_health = 0.0
+        count = 0
+        
+        for i in range(self.N):
+            if self.active[i] == 1:
+                total_health += self.health[i]
+                count += 1
+        
+        return (total_health / count / self.max_health) if count > 0 else 0.0
                     
     def get_range_circles(self) -> MatrixField:
         return self.range_circles

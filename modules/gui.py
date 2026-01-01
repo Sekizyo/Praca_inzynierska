@@ -7,6 +7,7 @@ from modules.swarms import Swarms
 from modules.constants import DroneModes
 from modules.voronoi import VoronoiDiagram
 from modules.gui_utils import GuiState
+from modules.utils import run_every_n_calls
 
 class GUI():
     MAP_SIZE: float = 400.0
@@ -25,8 +26,6 @@ class GUI():
         self.map = Map(self.scene, self.MAP_SIZE)
         
         self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=100)
-        self._voronoi_calls: int = 0
-        self._calc_vornoi_every_n_frames: int = 30
 
         self._init_camera()
         
@@ -79,25 +78,20 @@ class GUI():
             self.gui.text(f"Player mode: {player_swarm.get_mode()}")
             self.gui.text(f"Enemy AI state: {enemy_ai.get_state()}")
             self.gui.text(f"Territory: {self.player_territory:.1f}%")
-        
-    def _draw_voronoi(self) -> None:
-        if self._voronoi_calls < self._calc_vornoi_every_n_frames:
-            self._voronoi_calls += 1
-        else:
-            self._voronoi_calls = 0
-            player_swarm = self.swarms.get_player_swarm()
-            enemy_swarm = self.swarms.get_enemy_swarm()
             
-            self.player_territory = self.voronoi.update(
-                player_swarm.get_pos_field(), 
-                player_swarm.N,
-                player_swarm.health,
-                enemy_swarm.get_pos_field(),
-                enemy_swarm.N,
-                enemy_swarm.health
-            )
-        if self.GuiState.SHOW_VORONOI:
-            self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
+    @run_every_n_calls(10)
+    def _calc_voronoi(self) -> None:
+        player_swarm = self.swarms.get_player_swarm()
+        enemy_swarm = self.swarms.get_enemy_swarm()
+        
+        self.player_territory = self.voronoi.update(
+            player_swarm.get_pos_field(), 
+            player_swarm.N,
+            player_swarm.health,
+            enemy_swarm.get_pos_field(),
+            enemy_swarm.N,
+            enemy_swarm.health
+        )
         
     def update(self) -> None:
         self._update_camera()
@@ -108,4 +102,6 @@ class GUI():
             self.swarms.update(self.dt, self.GuiState)
         
         self._update_gui()
-        self._draw_voronoi()
+        self._calc_voronoi()
+        if self.GuiState.SHOW_VORONOI:
+            self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
