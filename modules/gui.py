@@ -18,7 +18,7 @@ class GUI():
         self.GuiState: GuiState = GuiState()
         
         self.dt: float = 0.15
-        self.drone_count: int = 2000
+        self.drone_count: int = 200
         self.player_territory: float = 0.0
         
         self.swarms: Swarms = Swarms(self.scene, self.drone_count, self.MAP_SIZE)
@@ -72,11 +72,12 @@ class GUI():
             
             player_swarm = self.swarms.get_player_swarm()
             enemy_swarm = self.swarms.get_enemy_swarm()
+            enemy_ai = self.swarms.get_enemy_ai()
             
             self.gui.text(f"Player drones: {player_swarm.get_alive_count()}")
             self.gui.text(f"Enemy drones: {enemy_swarm.get_alive_count()}")
-            self.gui.text(f"Mode: {player_swarm.get_mode()}")
-            self.gui.text(f"Modifiers: {player_swarm.get_modifiers()}")
+            self.gui.text(f"Player mode: {player_swarm.get_mode()}")
+            self.gui.text(f"Enemy AI state: {enemy_ai.get_state()}")
             self.gui.text(f"Territory: {self.player_territory:.1f}%")
         
     def _draw_voronoi(self) -> None:

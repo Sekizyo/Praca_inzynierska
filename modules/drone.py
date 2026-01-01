@@ -162,20 +162,20 @@ class DroneSwarm:
         self.mode = mode
         
         if self.mode == DroneModes.ATTACK:
-            self.separation_modifier[None] = 3
+            self.separation_modifier[None] = 2.0
             self.alignment_modifier[None] = 2.0
             self.cohesion_modifier[None] = 1.0
-            self.target_weight[None] = 1.0
+            self.target_weight[None] = 1.5
         elif self.mode == DroneModes.SPREAD:
-            self.separation_modifier[None] = 10.0
+            self.separation_modifier[None] = 3.0
             self.alignment_modifier[None] = 0.2
             self.cohesion_modifier[None] = 0.2
-            self.target_weight[None] = 0.3
+            self.target_weight[None] = 0.6
         elif self.mode == DroneModes.PATROL:
-            self.separation_modifier[None] = 2
-            self.alignment_modifier[None] = 2.0
-            self.cohesion_modifier[None] = 3.0
-            self.target_weight[None] = 1.0
+            self.separation_modifier[None] = 0.5
+            self.alignment_modifier[None] = 1.0
+            self.cohesion_modifier[None] = 0.5
+            self.target_weight[None] = 0.7
 
     @ti.kernel
     def update(self, dt: ti.f32, target_pos: ti.template()):
