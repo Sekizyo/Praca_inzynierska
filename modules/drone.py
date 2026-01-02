@@ -15,7 +15,7 @@ class DroneSwarm:
     perception_radius: float = 40.0
     mode: DroneModes = DroneModes.SPREAD
     projectile_speed: float = 50.0
-    shoot_range: float = 25.0
+    shoot_range: float = 50.0
     shoot_cooldown: float = 3.0
     hit_radius: float = 2.0
     max_health: float = 100.0
@@ -57,8 +57,10 @@ class DroneSwarm:
         self.cohesion_modifier[None] = 0.1
         self.target_weight[None] = 0.5
         
-        self._center_cache = [0.0, 0.0, 0.0]
-
+        self.center_x = ti.field(dtype=ti.f32, shape=())
+        self.center_y = ti.field(dtype=ti.f32, shape=())
+        self.center_z = ti.field(dtype=ti.f32, shape=())
+        
         self._initialize()
 
     def _initialize(self) -> None:
@@ -162,24 +164,28 @@ class DroneSwarm:
                 steering = steering.normalized() * self.max_force
         return steering
     
-    def update_mode(self, mode: DroneModes) -> None:
-        self.mode = mode
-        
-        if self.mode == DroneModes.ATTACK:
+    @ti.kernel
+    def _update_mode(self, mode: ti.i32):
+        if mode == 0:
             self.separation_modifier[None] = 2.0
             self.alignment_modifier[None] = 2.0
             self.cohesion_modifier[None] = 1.0
-            self.target_weight[None] = 1.5
-        elif self.mode == DroneModes.SPREAD:
+            self.target_weight[None] = 2
+        elif mode == 1:
             self.separation_modifier[None] = 3.0
             self.alignment_modifier[None] = 0.2
             self.cohesion_modifier[None] = 0.2
             self.target_weight[None] = 0.6
-        elif self.mode == DroneModes.PATROL:
+        elif mode == 2:
             self.separation_modifier[None] = 0.5
             self.alignment_modifier[None] = 1.0
             self.cohesion_modifier[None] = 0.5
             self.target_weight[None] = 0.7
+    
+    def update_mode(self, mode: DroneModes):
+        self.mode = mode
+        mode_map = {DroneModes.ATTACK: 0, DroneModes.SPREAD: 1, DroneModes.PATROL: 2}
+        self._update_mode(mode_map[mode])
 
     @ti.kernel
     def update(self, dt: ti.f32, target_pos: ti.template()):
@@ -367,10 +373,12 @@ class DroneSwarm:
                 else:
                     self.range_circles[idx] = ti.Vector([0.0, 0.0, -1000.0])
                     self.range_circles[idx + 1] = ti.Vector([0.0, 0.0, -1000.0])
-                    
-    @run_every_n_calls(5)       
-    def get_swarm_center(self) -> list[float]:
-        total_x = total_y = total_z = 0.0
+    
+    @ti.kernel
+    def _compute_swarm_center(self):
+        total_x = 0.0
+        total_y = 0.0
+        total_z = 0.0
         count = 0
         
         for i in range(self.N):
@@ -381,16 +389,20 @@ class DroneSwarm:
                 count += 1
         
         if count > 0:
-            inv_count = 1.0 / count
-            self._center_cache[0] = total_x * inv_count
-            self._center_cache[1] = total_y * inv_count
-            self._center_cache[2] = total_z * inv_count
+            inv_count = 1.0 / ti.cast(count, ti.f32)
+            self.center_x[None] = total_x * inv_count
+            self.center_y[None] = total_y * inv_count
+            self.center_z[None] = total_z * inv_count
         else:
-            self._center_cache[:] = [0.0, 0.0, 0.0]
-        
-        return self._center_cache
+            self.center_x[None] = 0.0
+            self.center_y[None] = 0.0
+            self.center_z[None] = 0.0
     
-    @run_every_n_calls(5)
+    def get_swarm_center(self):
+        self._compute_swarm_center()
+        return [self.center_x[None], self.center_y[None], self.center_z[None]]
+    
+    @ti.kernel
     def get_health_ratio(self) -> float:
         total_health = 0.0
         count = 0
@@ -400,7 +412,7 @@ class DroneSwarm:
                 total_health += self.health[i]
                 count += 1
         
-        return (total_health / count / self.max_health) if count > 0 else 0.0
+        return total_health / (ti.cast(count, ti.f32) * self.max_health)
                     
     def get_range_circles(self) -> MatrixField:
         return self.range_circles
