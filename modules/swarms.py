@@ -21,9 +21,9 @@ class Swarms():
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
         
-    def _update_logic(self, dt: float) -> None:
+    def _update_logic(self, dt: float, player_territory: float) -> None:
         # Update AI for enemy swarm
-        self.enemy_ai.update(dt, self.player_swarm)
+        self.enemy_ai.update(dt, self.player_swarm, player_territory)
         
         # Update both swarms
         self.player_swarm.update(dt=dt, target_pos=self.player_target_field)
@@ -55,8 +55,8 @@ class Swarms():
         self.scene.particles(self.player_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
         self.scene.particles(self.enemy_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
         
-        self.scene.particles(self.get_player_target(), color=TARGET_COLOR, radius=1.0)
-        self.scene.particles(self.enemy_ai.get_target_field(), color=ENEMY_TARGET_COLOR, radius=1.0)
+        self.scene.particles(self.get_player_target(), color=TARGET_COLOR, radius=5.0)
+        self.scene.particles(self.enemy_ai.get_target_field(), color=ENEMY_TARGET_COLOR, radius=5.0)
         
     def get_player_swarm(self) -> DroneSwarm:
         return self.player_swarm
@@ -71,8 +71,8 @@ class Swarms():
         return self.player_target_field
     
     def set_player_target(self, x: float, y: float) -> None:
-        self.player_target_field[0] = [x, y, 250]
+        self.player_target_field[0] = [x, y, self.map_size * 0.5]
         
-    def update(self, dt: float, gui_state: GuiState) -> None:
-        self._update_logic(dt)
+    def update(self, dt: float, gui_state: GuiState, player_territory: float) -> None:
+        self._update_logic(dt, player_territory)
         self._draw(gui_state)

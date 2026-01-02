@@ -38,17 +38,19 @@ class EnemyAI:
         
         return math.sqrt(dx * dx + dy * dy + dz * dz)
     
-    def update(self, dt: float, player_swarm: DroneSwarm) -> None:
-        self._evaluate_state(player_swarm)
+    def update(self, dt: float, player_swarm: DroneSwarm, player_territory: float) -> None:
+        self._evaluate_state(player_swarm, player_territory)
         self._execute_state(player_swarm)
         
-    def _evaluate_state(self, player_swarm: DroneSwarm) -> None:
+    def _evaluate_state(self, player_swarm: DroneSwarm, player_territory: float) -> None:
         health_ratio = self.swarm.get_health_ratio()
         distance_to_player = self._get_distance_to_player(player_swarm)
         
-        if health_ratio < self.health_spread_threshold:
+        agression: float = round(player_territory / 100, 2)
+        print(agression)
+        if health_ratio < self.health_spread_threshold or agression < 0.5:
             new_state = DroneModes.SPREAD
-        elif distance_to_player < self.engage_distance and health_ratio > 0.5:
+        elif distance_to_player < self.engage_distance and health_ratio > 0.5 or agression >= 0.5:
             new_state = DroneModes.ATTACK
         else:
             new_state = DroneModes.PATROL
@@ -56,6 +58,7 @@ class EnemyAI:
         if self.state != new_state:
             self.state = new_state
             self.swarm.update_mode(new_state)
+            
     @run_every_n_calls(10)
     def _execute_state(self, player_swarm: DroneSwarm) -> None:
         if self.state == DroneModes.PATROL:
@@ -71,6 +74,7 @@ class EnemyAI:
     
     def _execute_attack(self, player_swarm: DroneSwarm) -> None:
         self.target_field[0] = player_swarm.get_swarm_center()
+        self.target_field[0][2] = self.map_size * 0.5 
     
     def _execute_spread(self, player_swarm: DroneSwarm) -> None:
         player_center = player_swarm.get_swarm_center()
@@ -89,7 +93,7 @@ class EnemyAI:
                 swarm_center[2]
             ]
         else:
-            self.target_field[0] = [self.map_size * 0.8, self.map_size * 0.8, self.map_size * 0.5]
+            self.target_field[0] = [self.map_size * 0.9, self.map_size * 0.9, self.map_size * 1.0]
     
     def get_state(self) -> DroneModes:
         return self.state

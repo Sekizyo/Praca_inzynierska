@@ -34,6 +34,7 @@ class GUI():
         self.camera.position(0, 0, 500)
         self.camera.lookat(0, 0, 0)
         self.camera.up(0, 1, 0)
+        self.camera.fov(90)
         
     def _update_camera(self) -> None:
         self.camera.track_user_inputs(self.window, movement_speed=3, hold_key=RMB)
@@ -51,8 +52,8 @@ class GUI():
 
         if self.window.is_pressed(LMB):
             mouse_pos = self.window.get_cursor_pos()
-            x = (mouse_pos[0] - 0.5) * 200.0
-            y = (mouse_pos[1] - 0.5) * 200.0
+            x = (mouse_pos[0] - 0.5) * self.MAP_SIZE * 2.0
+            y = (mouse_pos[1] - 0.5) * self.MAP_SIZE * 2.0
             self.swarms.set_player_target(x, y)
 
         
@@ -101,7 +102,7 @@ class GUI():
         self._handle_input()
         
         if not self.GuiState.PAUSED:
-            self.swarms.update(self.dt, self.GuiState)
+            self.swarms.update(self.dt, self.GuiState, self.player_territory)
         
         self._update_gui()
         self._calc_voronoi()
