@@ -42,15 +42,14 @@ class EnemyAI:
         self._evaluate_state(player_swarm, player_territory)
         self._execute_state(player_swarm)
         
+    @run_every_n_calls(15)
     def _evaluate_state(self, player_swarm: DroneSwarm, player_territory: float) -> None:
-        health_ratio = self.swarm.get_health_ratio()
         distance_to_player = self._get_distance_to_player(player_swarm)
         
         agression: float = round(player_territory / 100, 2)
-        print(agression)
-        if health_ratio < self.health_spread_threshold or agression < 0.5:
+        if agression < 0.5:
             new_state = DroneModes.SPREAD
-        elif distance_to_player < self.engage_distance and health_ratio > 0.5 or agression >= 0.5:
+        elif agression >= 0.5 or distance_to_player < self.engage_distance:
             new_state = DroneModes.ATTACK
         else:
             new_state = DroneModes.PATROL
@@ -59,7 +58,7 @@ class EnemyAI:
             self.state = new_state
             self.swarm.update_mode(new_state)
             
-    @run_every_n_calls(10)
+    @run_every_n_calls(20)
     def _execute_state(self, player_swarm: DroneSwarm) -> None:
         if self.state == DroneModes.PATROL:
             self._execute_patrol()
