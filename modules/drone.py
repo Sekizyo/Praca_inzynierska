@@ -118,10 +118,10 @@ class DroneSwarm:
         count = 0
         for j in range(self.N):
             if i != j and self.active[j] == 1:
-                dist = (self.pos[i] - self.pos[j]).norm()
-                if dist < self.perception_radius * 0.6 and dist > 0:
+                dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
+                if dist_sq < (self.perception_radius * 0.6) ** 2 and dist_sq > 0:
                     diff = self.pos[i] - self.pos[j]
-                    diff = diff.normalized() / dist
+                    diff = diff.normalized() / ti.sqrt(dist_sq)
                     steering += diff
                     count += 1
         if count > 0:
@@ -437,4 +437,3 @@ class DroneSwarm:
     
     def get_projectile_active_field(self) -> Field:
         return self.projectile_active
-        
