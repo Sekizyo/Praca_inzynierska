@@ -1,6 +1,4 @@
 import taichi as ti
-import random
-import math
 
 from taichi import Vector, Field, MatrixField, data_oriented, func
 from taichi.types import vector, f32, i32
@@ -67,26 +65,27 @@ class DroneSwarm:
         
         self._initialize()
 
-    def _initialize(self) -> None:
+    @ti.kernel
+    def _initialize(self):
         for i in range(self.N):
             if self.team == 0:
-                self.pos[i] = [
-                    -random.random() * self.boundary * 1.5,
-                    -random.random() * self.boundary * 1.5,
-                    random.random() * self.boundary * 1.5
-                ]
+                self.pos[i] = ti.Vector([
+                    -ti.random() * self.boundary * 1.5,
+                    -ti.random() * self.boundary * 1.5,
+                    ti.random() * self.boundary * 1.5
+                ])
             else:
-                self.pos[i] = [
-                    random.random() * self.boundary * 1.5,
-                    random.random() * self.boundary * 1.5,
-                    random.random() * self.boundary * 1.5
-                ]
+                self.pos[i] = ti.Vector([
+                    ti.random() * self.boundary * 1.5,
+                    ti.random() * self.boundary * 1.5,
+                    ti.random() * self.boundary * 1.5
+                ])
             
-            self.vel[i] = [
-                (random.random() - 0.5) * 5.0,
-                (random.random() - 0.5) * 5.0,
-                (random.random() - 0.5) * 2.0
-            ]
+            self.vel[i] = ti.Vector([
+                (ti.random() - 0.5) * 5.0,
+                (ti.random() - 0.5) * 5.0,
+                (ti.random() - 0.5) * 2.0
+            ])
             
             self.active[i] = 1
             self.health[i] = self.max_health
