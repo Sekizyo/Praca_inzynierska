@@ -25,21 +25,14 @@ class Swarms():
         # Update AI for enemy swarm
         self.enemy_ai.update(dt, self.player_swarm, player_territory)
         
-        # Update both swarms
+        # Update both swarms (now includes health checking)
         self.player_swarm.update(dt=dt, target_pos=self.player_target_field)
         self.enemy_swarm.update(dt=dt, target_pos=self.enemy_ai.get_target_field())
         
-        self.player_swarm.shoot(self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
-        self.enemy_swarm.shoot(self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
-        
-        self.player_swarm.update_projectiles(dt=dt)
-        self.enemy_swarm.update_projectiles(dt=dt)
-        
-        self.player_swarm.check_hits(self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
-        self.enemy_swarm.check_hits(self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
-        
-        self.player_swarm.update_health()
-        self.enemy_swarm.update_health()
+        # Batched combat updates - combines shooting, projectile updates, and hit detection
+        # This reduces kernel launch overhead from 6 separate calls to 2
+        self.player_swarm.batched_combat_update(dt, self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
+        self.enemy_swarm.batched_combat_update(dt, self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
         
     def _draw(self, gui_state: GuiState) -> None:
         if gui_state.SHOW_SHOOT_RANGE:

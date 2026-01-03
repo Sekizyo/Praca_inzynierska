@@ -259,6 +259,11 @@ class DroneSwarm:
             
             if self.cooldown[i] > 0.0:
                 self.cooldown[i] -= dt
+            
+            # Batched health check to reduce kernel launches
+            if self.health[i] <= 0.0:
+                self.active[i] = 0
+                self.pos[i] = ti.Vector([-10000.0, 0.0, 0.0])
 
     @ti.kernel
     def shoot(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
@@ -290,26 +295,25 @@ class DroneSwarm:
 
     @ti.kernel
     def update_projectiles(self, dt: ti.f32):
+        # Optimized batched projectile update
         for i in range(self.max_projectiles):
             if self.projectile_active[i] == 0:
                 continue
             
+            # Update position and lifetime in one go
             self.projectile_pos[i] += self.projectile_vel[i] * dt
             self.projectile_lifetime[i] -= dt
             
-            should_deactivate = 0
+            # Batched boundary and lifetime checks
+            pos = self.projectile_pos[i]
+            should_deactivate = (
+                self.projectile_lifetime[i] <= 0.0 or
+                pos.x > self.boundary or pos.x < -self.boundary or
+                pos.y > self.boundary or pos.y < -self.boundary or
+                pos.z > self.boundary or pos.z < 0.0
+            )
             
-            if self.projectile_lifetime[i] <= 0.0:
-                should_deactivate = 1
-            
-            if self.projectile_pos[i].x > self.boundary or self.projectile_pos[i].x < -self.boundary:
-                should_deactivate = 1
-            if self.projectile_pos[i].y > self.boundary or self.projectile_pos[i].y < -self.boundary:
-                should_deactivate = 1
-            if self.projectile_pos[i].z > self.boundary or self.projectile_pos[i].z < 0.0:
-                should_deactivate = 1
-            
-            if should_deactivate == 1:
+            if should_deactivate:
                 self.projectile_active[i] = 0
                 self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
                 free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
@@ -336,6 +340,8 @@ class DroneSwarm:
     
     @ti.kernel
     def update_health(self):
+        # Deprecated: Health checking now integrated into main update loop
+        # Kept for backwards compatibility
         for i in range(self.N):
             if self.health[i] <= 0.0:
                 self.active[i] = 0
@@ -436,4 +442,72 @@ class DroneSwarm:
         return self.projectile_pos
     
     def get_projectile_active_field(self) -> Field:
-        return self.projectile_active
+        return self.projectile_active    
+    @ti.kernel
+    def batched_combat_update(self, dt: ti.f32, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
+        """Batched kernel combining shooting, projectile updates, and hit detection for better performance"""
+        # Phase 1: Shoot at enemies
+        for i in range(self.N):
+            if self.active[i] == 0 or self.cooldown[i] > 0.0:
+                continue
+            
+            min_dist = ti.cast(1e10, ti.f32)
+            target_idx = -1
+            
+            for j in range(enemy_count):
+                if enemy_health[j] <= 0.0:
+                    continue
+                dist = (self.pos[i] - enemy_pos[j]).norm()
+                if dist < self.shoot_range and dist < min_dist:
+                    min_dist = dist
+                    target_idx = j
+            
+            if target_idx >= 0 and self.projectile_free_count[None] > 0:
+                free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
+                if free_idx >= 0:
+                    p = self.projectile_free_list[free_idx]
+                    direction = (enemy_pos[target_idx] - self.pos[i]).normalized()
+                    self.projectile_pos[p] = self.pos[i]
+                    self.projectile_vel[p] = direction * self.projectile_speed
+                    self.projectile_active[p] = 1
+                    self.projectile_lifetime[p] = self.projectile_max_lifetime
+                    self.cooldown[i] = self.shoot_cooldown
+        
+        # Phase 2: Update projectiles and check hits in one pass
+        for i in range(self.max_projectiles):
+            if self.projectile_active[i] == 0:
+                continue
+            
+            # Update projectile position
+            self.projectile_pos[i] += self.projectile_vel[i] * dt
+            self.projectile_lifetime[i] -= dt
+            
+            # Check boundary conditions
+            pos = self.projectile_pos[i]
+            should_deactivate = (
+                self.projectile_lifetime[i] <= 0.0 or
+                pos.x > self.boundary or pos.x < -self.boundary or
+                pos.y > self.boundary or pos.y < -self.boundary or
+                pos.z > self.boundary or pos.z < 0.0
+            )
+            
+            if should_deactivate:
+                self.projectile_active[i] = 0
+                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
+                self.projectile_free_list[free_idx] = i
+                continue
+            
+            # Check hits with enemies
+            for j in range(enemy_count):
+                if enemy_health[j] <= 0.0:
+                    continue
+                
+                dist = (self.projectile_pos[i] - enemy_pos[j]).norm()
+                if dist < self.hit_radius:
+                    self.projectile_active[i] = 0
+                    self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                    ti.atomic_add(enemy_health[j], -self.projectile_damage)
+                    free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
+                    self.projectile_free_list[free_idx] = i
+                    break
