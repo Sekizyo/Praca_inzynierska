@@ -7,6 +7,7 @@ from modules.colors import TARGET_COLOR, ENEMY_TARGET_COLOR
 from modules.gui_utils import GuiState
 from modules.enemy_ai import EnemyAI
 
+@ti.data_oriented
 class Swarms():
     def __init__(self, scene: SceneV2, drone_count: int, map_size: float) -> None:
         self.scene = scene
@@ -21,58 +22,165 @@ class Swarms():
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
         
+        # Shared Grid Initialization
+        self.grid_cell_size = 40.0
+        self.grid_padding = 2
+        self.max_cell_capacity = 100
+        
+        grid_dim = int(self.map_size * 2 / self.grid_cell_size) + 2 * self.grid_padding
+        self.grid_shape = ti.Vector([grid_dim, grid_dim, grid_dim])
+        self.grid_offset = ti.Vector([self.map_size, self.map_size, 0.0])
+        
+        self.grid_count = ti.field(dtype=ti.i32, shape=self.grid_shape)
+        self.grid_buckets = ti.field(dtype=ti.i32, shape=(self.grid_shape[0], self.grid_shape[1], self.grid_shape[2], self.max_cell_capacity))
+        
+        # Grid Visualization
+        self.max_grid_lines = 20000
+        self.grid_lines = ti.Vector.field(3, dtype=ti.f32, shape=self.max_grid_lines * 2)
+        self.grid_line_count = ti.field(dtype=ti.i32, shape=())
+
+    @ti.kernel
+    def update_shared_grid(self):
+        for I in ti.grouped(self.grid_count):
+            self.grid_count[I] = 0
+            
+        # Add player drones
+        for i in range(self.player_swarm.N):
+            if self.player_swarm.active[i]:
+                pos = self.player_swarm.pos[i] + self.grid_offset
+                gx = int(pos.x / self.grid_cell_size) + self.grid_padding
+                gy = int(pos.y / self.grid_cell_size) + self.grid_padding
+                gz = int(pos.z / self.grid_cell_size) + self.grid_padding
+                
+                gx = ti.math.clamp(gx, 0, self.grid_shape[0] - 1)
+                gy = ti.math.clamp(gy, 0, self.grid_shape[1] - 1)
+                gz = ti.math.clamp(gz, 0, self.grid_shape[2] - 1)
+                
+                idx = ti.atomic_add(self.grid_count[gx, gy, gz], 1)
+                if idx < self.max_cell_capacity:
+                    self.grid_buckets[gx, gy, gz, idx] = i
+                    
+        # Add enemy drones
+        for i in range(self.enemy_swarm.N):
+            if self.enemy_swarm.active[i]:
+                pos = self.enemy_swarm.pos[i] + self.grid_offset
+                gx = int(pos.x / self.grid_cell_size) + self.grid_padding
+                gy = int(pos.y / self.grid_cell_size) + self.grid_padding
+                gz = int(pos.z / self.grid_cell_size) + self.grid_padding
+                
+                gx = ti.math.clamp(gx, 0, self.grid_shape[0] - 1)
+                gy = ti.math.clamp(gy, 0, self.grid_shape[1] - 1)
+                gz = ti.math.clamp(gz, 0, self.grid_shape[2] - 1)
+                
+                idx = ti.atomic_add(self.grid_count[gx, gy, gz], 1)
+                if idx < self.max_cell_capacity:
+                    self.grid_buckets[gx, gy, gz, idx] = i + self.player_swarm.N
+
+    @ti.kernel
+    def update_grid_vis(self):
+        self.grid_line_count[None] = 0
+        
+        for I in ti.grouped(self.grid_count):
+            if self.grid_count[I] > 0:
+                base_x = (I[0] - self.grid_padding) * self.grid_cell_size - self.grid_offset.x
+                base_y = (I[1] - self.grid_padding) * self.grid_cell_size - self.grid_offset.y
+                base_z = (I[2] - self.grid_padding) * self.grid_cell_size - self.grid_offset.z
+                
+                size = self.grid_cell_size
+                
+                idx = ti.atomic_add(self.grid_line_count[None], 24)
+                
+                if idx + 24 <= self.max_grid_lines * 2:
+                    p0 = ti.Vector([base_x, base_y, base_z])
+                    p1 = ti.Vector([base_x + size, base_y, base_z])
+                    p2 = ti.Vector([base_x + size, base_y + size, base_z])
+                    p3 = ti.Vector([base_x, base_y + size, base_z])
+                    
+                    p4 = ti.Vector([base_x, base_y, base_z + size])
+                    p5 = ti.Vector([base_x + size, base_y, base_z + size])
+                    p6 = ti.Vector([base_x + size, base_y + size, base_z + size])
+                    p7 = ti.Vector([base_x, base_y + size, base_z + size])
+                    
+                    # Bottom
+                    self.grid_lines[idx] = p0; self.grid_lines[idx+1] = p1
+                    self.grid_lines[idx+2] = p1; self.grid_lines[idx+3] = p2
+                    self.grid_lines[idx+4] = p2; self.grid_lines[idx+5] = p3
+                    self.grid_lines[idx+6] = p3; self.grid_lines[idx+7] = p0
+                    
+                    # Top
+                    self.grid_lines[idx+8] = p4; self.grid_lines[idx+9] = p5
+                    self.grid_lines[idx+10] = p5; self.grid_lines[idx+11] = p6
+                    self.grid_lines[idx+12] = p6; self.grid_lines[idx+13] = p7
+                    self.grid_lines[idx+14] = p7; self.grid_lines[idx+15] = p4
+                    
+                    # Vertical
+                    self.grid_lines[idx+16] = p0; self.grid_lines[idx+17] = p4
+                    self.grid_lines[idx+18] = p1; self.grid_lines[idx+19] = p5
+                    self.grid_lines[idx+20] = p2; self.grid_lines[idx+21] = p6
+                    self.grid_lines[idx+22] = p3; self.grid_lines[idx+23] = p7
+
     def _update_logic(self, dt: float, player_territory: float) -> None:
-        # Update grids first
-        self.player_swarm.update_grid()
-        self.enemy_swarm.update_grid()
+        # Update shared grid
+        self.update_shared_grid()
 
         # Update AI for enemy swarm
         self.enemy_ai.update(dt, self.player_swarm, player_territory)
         
-        # Update both swarms (now includes health checking)
-        self.player_swarm.update(dt=dt, target_pos=self.player_target_field)
-        self.enemy_swarm.update(dt=dt, target_pos=self.enemy_ai.get_target_field())
+        # Update both swarms
+        self.player_swarm.update(
+            dt, 
+            self.player_target_field,
+            self.grid_count,
+            self.grid_buckets,
+            self.grid_cell_size,
+            self.grid_shape,
+            self.grid_padding,
+            self.grid_offset
+        )
+        self.enemy_swarm.update(
+            dt, 
+            self.enemy_ai.get_target_field(),
+            self.grid_count,
+            self.grid_buckets,
+            self.grid_cell_size,
+            self.grid_shape,
+            self.grid_padding,
+            self.grid_offset
+        )
         
-        # Batched combat updates - combines shooting, projectile updates, and hit detection
-        # This reduces kernel launch overhead from 6 separate calls to 2
+        # Batched combat updates
         self.player_swarm.batched_combat_update(
             dt, 
             self.enemy_swarm.get_pos_field(), 
             self.enemy_swarm.N, 
             self.enemy_swarm.health,
-            self.enemy_swarm.get_grid_count(),
-            self.enemy_swarm.get_grid_buckets(),
-            self.enemy_swarm.get_grid_offset(),
-            self.enemy_swarm.get_grid_shape(),
-            self.enemy_swarm.grid_cell_size
+            self.grid_count,
+            self.grid_buckets,
+            self.grid_offset,
+            self.grid_shape,
+            self.grid_cell_size,
+            self.grid_padding
         )
         self.enemy_swarm.batched_combat_update(
             dt, 
             self.player_swarm.get_pos_field(), 
             self.player_swarm.N, 
             self.player_swarm.health,
-            self.player_swarm.get_grid_count(),
-            self.player_swarm.get_grid_buckets(),
-            self.player_swarm.get_grid_offset(),
-            self.player_swarm.get_grid_shape(),
-            self.player_swarm.grid_cell_size
+            self.grid_count,
+            self.grid_buckets,
+            self.grid_offset,
+            self.grid_shape,
+            self.grid_cell_size,
+            self.grid_padding
         )
         
     def _draw(self, gui_state: GuiState) -> None:
         if gui_state.SHOW_GRID:
-            self.player_swarm.update_grid_vis()
-            self.enemy_swarm.update_grid_vis()
+            self.update_grid_vis()
             
-            # Draw only active cells
-            p_lines = self.player_swarm.get_grid_lines()
-            p_count = self.player_swarm.get_grid_line_count()
-            if p_count > 0:
-                self.scene.lines(p_lines, indices=None, vertex_count=p_count, color=GRID_COLOR, width=1.0)
-                
-            e_lines = self.enemy_swarm.get_grid_lines()
-            e_count = self.enemy_swarm.get_grid_line_count()
-            if e_count > 0:
-                self.scene.lines(e_lines, indices=None, vertex_count=e_count, color=GRID_COLOR, width=1.0)
+            count = self.grid_line_count[None]
+            if count > 0:
+                self.scene.lines(self.grid_lines, indices=None, vertex_count=count, color=GRID_COLOR, width=1.0)
 
         if gui_state.SHOW_SHOOT_RANGE:
             self.player_swarm.compute_range_circles()

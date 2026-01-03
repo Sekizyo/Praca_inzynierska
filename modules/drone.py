@@ -65,101 +65,7 @@ class DroneSwarm:
         self.center_y = ti.field(dtype=ti.f32, shape=())
         self.center_z = ti.field(dtype=ti.f32, shape=())
         
-        # --- Grid Optimization ---
-        self.grid_cell_size = self.perception_radius * 1.5 # Increased cell size
-        self.grid_dim_x = int(math.ceil(boundary_size * 2 / self.grid_cell_size))
-        self.grid_dim_y = int(math.ceil(boundary_size * 2 / self.grid_cell_size))
-        self.grid_dim_z = int(math.ceil(boundary_size / self.grid_cell_size))
-        
-        self.grid_padding = 1
-        self.grid_shape = (
-            self.grid_dim_x + 2 * self.grid_padding,
-            self.grid_dim_y + 2 * self.grid_padding,
-            self.grid_dim_z + 2 * self.grid_padding
-        )
-        
-        self.max_cell_capacity = 128 # Increased capacity for larger cells
-        self.grid_count = ti.field(dtype=ti.i32, shape=self.grid_shape)
-        self.grid_buckets = ti.field(dtype=ti.i32, shape=(*self.grid_shape, self.max_cell_capacity))
-        
-        self.grid_offset = ti.Vector([boundary_size, boundary_size, 0.0])
-        
-        # --- Grid Visualization ---
-        # Dynamic line buffer for active cells only
-        max_active_cells = self.grid_dim_x * self.grid_dim_y * self.grid_dim_z
-        self.grid_lines = ti.Vector.field(3, dtype=ti.f32, shape=max_active_cells * 24) # 12 lines * 2 verts per cell
-        self.grid_line_count = ti.field(dtype=ti.i32, shape=())
-        # -------------------------
-        
         self._initialize()
-
-    @ti.kernel
-    def update_grid_vis(self):
-        self.grid_line_count[None] = 0
-        
-        # Iterate over grid (excluding padding)
-        for x, y, z in ti.ndrange(self.grid_dim_x, self.grid_dim_y, self.grid_dim_z):
-            gx = x + self.grid_padding
-            gy = y + self.grid_padding
-            gz = z + self.grid_padding
-            
-            if self.grid_count[gx, gy, gz] > 0:
-                # Calculate cell bounds
-                min_x = (x * self.grid_cell_size) - self.boundary
-                min_y = (y * self.grid_cell_size) - self.boundary
-                min_z = (z * self.grid_cell_size)
-                
-                max_x = min_x + self.grid_cell_size
-                max_y = min_y + self.grid_cell_size
-                max_z = min_z + self.grid_cell_size
-                
-                # Add 12 lines (cube edges)
-                base_idx = ti.atomic_add(self.grid_line_count[None], 24)
-                
-                # Bottom face
-                self.grid_lines[base_idx+0] = ti.Vector([min_x, min_y, min_z])
-                self.grid_lines[base_idx+1] = ti.Vector([max_x, min_y, min_z])
-                
-                self.grid_lines[base_idx+2] = ti.Vector([max_x, min_y, min_z])
-                self.grid_lines[base_idx+3] = ti.Vector([max_x, max_y, min_z])
-                
-                self.grid_lines[base_idx+4] = ti.Vector([max_x, max_y, min_z])
-                self.grid_lines[base_idx+5] = ti.Vector([min_x, max_y, min_z])
-                
-                self.grid_lines[base_idx+6] = ti.Vector([min_x, max_y, min_z])
-                self.grid_lines[base_idx+7] = ti.Vector([min_x, min_y, min_z])
-                
-                # Top face
-                self.grid_lines[base_idx+8] = ti.Vector([min_x, min_y, max_z])
-                self.grid_lines[base_idx+9] = ti.Vector([max_x, min_y, max_z])
-                
-                self.grid_lines[base_idx+10] = ti.Vector([max_x, min_y, max_z])
-                self.grid_lines[base_idx+11] = ti.Vector([max_x, max_y, max_z])
-                
-                self.grid_lines[base_idx+12] = ti.Vector([max_x, max_y, max_z])
-                self.grid_lines[base_idx+13] = ti.Vector([min_x, max_y, max_z])
-                
-                self.grid_lines[base_idx+14] = ti.Vector([min_x, max_y, max_z])
-                self.grid_lines[base_idx+15] = ti.Vector([min_x, min_y, max_z])
-                
-                # Vertical lines
-                self.grid_lines[base_idx+16] = ti.Vector([min_x, min_y, min_z])
-                self.grid_lines[base_idx+17] = ti.Vector([min_x, min_y, max_z])
-                
-                self.grid_lines[base_idx+18] = ti.Vector([max_x, min_y, min_z])
-                self.grid_lines[base_idx+19] = ti.Vector([max_x, min_y, max_z])
-                
-                self.grid_lines[base_idx+20] = ti.Vector([max_x, max_y, min_z])
-                self.grid_lines[base_idx+21] = ti.Vector([max_x, max_y, max_z])
-                
-                self.grid_lines[base_idx+22] = ti.Vector([min_x, max_y, min_z])
-                self.grid_lines[base_idx+23] = ti.Vector([min_x, max_y, max_z])
-
-    def get_grid_lines(self):
-        return self.grid_lines
-    
-    def get_grid_line_count(self):
-        return self.grid_line_count[None]
 
     def _initialize(self) -> None:
         for i in range(self.N):
@@ -193,39 +99,6 @@ class DroneSwarm:
         
         self.projectile_free_count[None] = self.max_projectiles
             
-    @ti.kernel
-    def update_grid(self):
-        self.grid_count.fill(0)
-        
-        for i in range(self.N):
-            if self.active[i] == 1:
-                pos = self.pos[i] + self.grid_offset
-                
-                idx_x = int(pos.x / self.grid_cell_size) + self.grid_padding
-                idx_y = int(pos.y / self.grid_cell_size) + self.grid_padding
-                idx_z = int(pos.z / self.grid_cell_size) + self.grid_padding
-                
-                idx_x = ti.math.clamp(idx_x, 0, self.grid_shape[0] - 1)
-                idx_y = ti.math.clamp(idx_y, 0, self.grid_shape[1] - 1)
-                idx_z = ti.math.clamp(idx_z, 0, self.grid_shape[2] - 1)
-                
-                idx_in_cell = ti.atomic_add(self.grid_count[idx_x, idx_y, idx_z], 1)
-                
-                if idx_in_cell < self.max_cell_capacity:
-                    self.grid_buckets[idx_x, idx_y, idx_z, idx_in_cell] = i
-
-    def get_grid_count(self):
-        return self.grid_count
-    
-    def get_grid_buckets(self):
-        return self.grid_buckets
-    
-    def get_grid_offset(self):
-        return self.grid_offset
-    
-    def get_grid_shape(self):
-        return self.grid_shape
-
     def get_mode(self) -> DroneModes:   
         return self.mode
 
@@ -241,35 +114,54 @@ class DroneSwarm:
         return count
     
     @ti.func
-    def separation(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
+    def separation(self, i: ti.i32, 
+                   grid_count: ti.template(), 
+                   grid_buckets: ti.template(), 
+                   grid_cell_size: ti.f32, 
+                   grid_shape: ti.types.vector(3, ti.i32), 
+                   grid_padding: ti.i32, 
+                   grid_offset: ti.types.vector(3, ti.f32)) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
         perception_sq = (self.perception_radius * 0.6) ** 2
         
-        pos_i = self.pos[i] + self.grid_offset
-        base_x = int(pos_i.x / self.grid_cell_size) + self.grid_padding
-        base_y = int(pos_i.y / self.grid_cell_size) + self.grid_padding
-        base_z = int(pos_i.z / self.grid_cell_size) + self.grid_padding
+        pos_i = self.pos[i] + grid_offset
+        base_x = int(pos_i.x / grid_cell_size) + grid_padding
+        base_y = int(pos_i.y / grid_cell_size) + grid_padding
+        base_z = int(pos_i.z / grid_cell_size) + grid_padding
 
         for dx in ti.static(range(-1, 2)):
             for dy in ti.static(range(-1, 2)):
                 for dz in ti.static(range(-1, 2)):
-                    gx = ti.math.clamp(base_x + dx, 0, self.grid_shape[0] - 1)
-                    gy = ti.math.clamp(base_y + dy, 0, self.grid_shape[1] - 1)
-                    gz = ti.math.clamp(base_z + dz, 0, self.grid_shape[2] - 1)
+                    gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
+                    gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
+                    gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
                     
-                    cell_count = self.grid_count[gx, gy, gz]
-                    limit = ti.min(cell_count, self.max_cell_capacity)
+                    cell_count = grid_count[gx, gy, gz]
+                    # We assume max_cell_capacity is consistent or passed, but here we use the bucket size
+                    # Since we don't have max_cell_capacity as arg, we rely on bucket shape or assume it's large enough
+                    # Actually, we should probably pass max_cell_capacity or use grid_buckets.shape[3]
+                    limit = ti.min(cell_count, grid_buckets.shape[3])
                     
                     for k in range(limit):
-                        j = self.grid_buckets[gx, gy, gz, k]
-                        if i != j:
-                            diff = self.pos[i] - self.pos[j]
-                            dist_sq = diff.norm_sqr()
-                            if dist_sq < perception_sq and dist_sq > 1e-6:
-                                inv_dist = ti.rsqrt(dist_sq)
-                                steering += diff * inv_dist * inv_dist
-                                count += 1
+                        global_idx = grid_buckets[gx, gy, gz, k]
+                        
+                        # Check if friend (same team)
+                        is_friend = 0
+                        if self.team == 0:
+                            if global_idx < self.N: is_friend = 1
+                        else:
+                            if global_idx >= self.N: is_friend = 1
+                            
+                        if is_friend:
+                            j = global_idx % self.N
+                            if i != j:
+                                diff = self.pos[i] - self.pos[j]
+                                dist_sq = diff.norm_sqr()
+                                if dist_sq < perception_sq and dist_sq > 1e-6:
+                                    inv_dist = ti.rsqrt(dist_sq)
+                                    steering += diff * inv_dist * inv_dist
+                                    count += 1
         
         if count > 0:
             steering /= ti.cast(count, ti.f32)
@@ -283,33 +175,49 @@ class DroneSwarm:
         return steering
 
     @ti.func
-    def alignment(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
+    def alignment(self, i: ti.i32, 
+                  grid_count: ti.template(), 
+                  grid_buckets: ti.template(), 
+                  grid_cell_size: ti.f32, 
+                  grid_shape: ti.types.vector(3, ti.i32), 
+                  grid_padding: ti.i32, 
+                  grid_offset: ti.types.vector(3, ti.f32)) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
         perception_sq = self.perception_radius ** 2
         
-        pos_i = self.pos[i] + self.grid_offset
-        base_x = int(pos_i.x / self.grid_cell_size) + self.grid_padding
-        base_y = int(pos_i.y / self.grid_cell_size) + self.grid_padding
-        base_z = int(pos_i.z / self.grid_cell_size) + self.grid_padding
+        pos_i = self.pos[i] + grid_offset
+        base_x = int(pos_i.x / grid_cell_size) + grid_padding
+        base_y = int(pos_i.y / grid_cell_size) + grid_padding
+        base_z = int(pos_i.z / grid_cell_size) + grid_padding
 
         for dx in ti.static(range(-1, 2)):
             for dy in ti.static(range(-1, 2)):
                 for dz in ti.static(range(-1, 2)):
-                    gx = ti.math.clamp(base_x + dx, 0, self.grid_shape[0] - 1)
-                    gy = ti.math.clamp(base_y + dy, 0, self.grid_shape[1] - 1)
-                    gz = ti.math.clamp(base_z + dz, 0, self.grid_shape[2] - 1)
+                    gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
+                    gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
+                    gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
                     
-                    cell_count = self.grid_count[gx, gy, gz]
-                    limit = ti.min(cell_count, self.max_cell_capacity)
+                    cell_count = grid_count[gx, gy, gz]
+                    limit = ti.min(cell_count, grid_buckets.shape[3])
                     
                     for k in range(limit):
-                        j = self.grid_buckets[gx, gy, gz, k]
-                        if i != j:
-                            dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
-                            if dist_sq < perception_sq:
-                                steering += self.vel[j]
-                                count += 1
+                        global_idx = grid_buckets[gx, gy, gz, k]
+                        
+                        # Check if friend
+                        is_friend = 0
+                        if self.team == 0:
+                            if global_idx < self.N: is_friend = 1
+                        else:
+                            if global_idx >= self.N: is_friend = 1
+                            
+                        if is_friend:
+                            j = global_idx % self.N
+                            if i != j:
+                                dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
+                                if dist_sq < perception_sq:
+                                    steering += self.vel[j]
+                                    count += 1
         
         if count > 0:
             steering /= ti.cast(count, ti.f32)
@@ -323,33 +231,49 @@ class DroneSwarm:
         return steering
 
     @ti.func
-    def cohesion(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
+    def cohesion(self, i: ti.i32, 
+                 grid_count: ti.template(), 
+                 grid_buckets: ti.template(), 
+                 grid_cell_size: ti.f32, 
+                 grid_shape: ti.types.vector(3, ti.i32), 
+                 grid_padding: ti.i32, 
+                 grid_offset: ti.types.vector(3, ti.f32)) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
         perception_sq = self.perception_radius ** 2
         
-        pos_i = self.pos[i] + self.grid_offset
-        base_x = int(pos_i.x / self.grid_cell_size) + self.grid_padding
-        base_y = int(pos_i.y / self.grid_cell_size) + self.grid_padding
-        base_z = int(pos_i.z / self.grid_cell_size) + self.grid_padding
+        pos_i = self.pos[i] + grid_offset
+        base_x = int(pos_i.x / grid_cell_size) + grid_padding
+        base_y = int(pos_i.y / grid_cell_size) + grid_padding
+        base_z = int(pos_i.z / grid_cell_size) + grid_padding
 
         for dx in ti.static(range(-1, 2)):
             for dy in ti.static(range(-1, 2)):
                 for dz in ti.static(range(-1, 2)):
-                    gx = ti.math.clamp(base_x + dx, 0, self.grid_shape[0] - 1)
-                    gy = ti.math.clamp(base_y + dy, 0, self.grid_shape[1] - 1)
-                    gz = ti.math.clamp(base_z + dz, 0, self.grid_shape[2] - 1)
+                    gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
+                    gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
+                    gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
                     
-                    cell_count = self.grid_count[gx, gy, gz]
-                    limit = ti.min(cell_count, self.max_cell_capacity)
+                    cell_count = grid_count[gx, gy, gz]
+                    limit = ti.min(cell_count, grid_buckets.shape[3])
                     
                     for k in range(limit):
-                        j = self.grid_buckets[gx, gy, gz, k]
-                        if i != j:
-                            dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
-                            if dist_sq < perception_sq:
-                                steering += self.pos[j]
-                                count += 1
+                        global_idx = grid_buckets[gx, gy, gz, k]
+                        
+                        # Check if friend
+                        is_friend = 0
+                        if self.team == 0:
+                            if global_idx < self.N: is_friend = 1
+                        else:
+                            if global_idx >= self.N: is_friend = 1
+                            
+                        if is_friend:
+                            j = global_idx % self.N
+                            if i != j:
+                                dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
+                                if dist_sq < perception_sq:
+                                    steering += self.pos[j]
+                                    count += 1
         
         if count > 0:
             steering /= ti.cast(count, ti.f32)
@@ -387,16 +311,22 @@ class DroneSwarm:
         self._update_mode(mode_map[mode])
 
     @ti.kernel
-    def update(self, dt: ti.f32, target_pos: ti.template()):
+    def update(self, dt: ti.f32, target_pos: ti.template(),
+               grid_count: ti.template(), 
+               grid_buckets: ti.template(), 
+               grid_cell_size: ti.f32, 
+               grid_shape: ti.types.vector(3, ti.i32), 
+               grid_padding: ti.i32, 
+               grid_offset: ti.types.vector(3, ti.f32)):
         for i in range(self.N):
             if self.active[i] == 0:
                 continue
 
             self.acc[i] = ti.Vector([0.0, 0.0, 0.0])
             
-            sep = self.separation(i)
-            ali = self.alignment(i)
-            coh = self.cohesion(i)
+            sep = self.separation(i, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
+            ali = self.alignment(i, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
+            coh = self.cohesion(i, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
             
             self.acc[i] += sep * self.separation_modifier[None]
             self.acc[i] += ali * self.alignment_modifier[None]
@@ -647,11 +577,12 @@ class DroneSwarm:
                               enemy_pos: ti.template(), 
                               enemy_count: ti.i32, 
                               enemy_health: ti.template(),
-                              enemy_grid_count: ti.template(),
-                              enemy_grid_buckets: ti.template(),
-                              enemy_grid_offset: ti.template(),
-                              enemy_grid_shape: ti.types.vector(3, ti.i32),
-                              enemy_cell_size: ti.f32):
+                              grid_count: ti.template(),
+                              grid_buckets: ti.template(),
+                              grid_offset: ti.types.vector(3, ti.f32),
+                              grid_shape: ti.types.vector(3, ti.i32),
+                              grid_cell_size: ti.f32,
+                              grid_padding: ti.i32):
         shoot_range_sq = self.shoot_range * self.shoot_range
         hit_radius_sq = self.hit_radius * self.hit_radius
         
@@ -663,29 +594,39 @@ class DroneSwarm:
             target_idx = -1
             
             # Grid lookup for shooting
-            pos_i = self.pos[i] + enemy_grid_offset
-            base_x = int(pos_i.x / enemy_cell_size) + self.grid_padding
-            base_y = int(pos_i.y / enemy_cell_size) + self.grid_padding
-            base_z = int(pos_i.z / enemy_cell_size) + self.grid_padding
+            pos_i = self.pos[i] + grid_offset
+            base_x = int(pos_i.x / grid_cell_size) + grid_padding
+            base_y = int(pos_i.y / grid_cell_size) + grid_padding
+            base_z = int(pos_i.z / grid_cell_size) + grid_padding
             
             for dx in ti.static(range(-1, 2)):
                 for dy in ti.static(range(-1, 2)):
                     for dz in ti.static(range(-1, 2)):
-                        gx = ti.math.clamp(base_x + dx, 0, enemy_grid_shape[0] - 1)
-                        gy = ti.math.clamp(base_y + dy, 0, enemy_grid_shape[1] - 1)
-                        gz = ti.math.clamp(base_z + dz, 0, enemy_grid_shape[2] - 1)
+                        gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
+                        gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
+                        gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
                         
-                        cell_count = enemy_grid_count[gx, gy, gz]
-                        limit = ti.min(cell_count, self.max_cell_capacity)
+                        cell_count = grid_count[gx, gy, gz]
+                        limit = ti.min(cell_count, grid_buckets.shape[3])
                         
                         for k in range(limit):
-                            j = enemy_grid_buckets[gx, gy, gz, k]
-                            if enemy_health[j] > 0.0:
-                                diff = self.pos[i] - enemy_pos[j]
-                                dist_sq = diff.norm_sqr()
-                                if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
-                                    min_dist_sq = dist_sq
-                                    target_idx = j
+                            global_idx = grid_buckets[gx, gy, gz, k]
+                            
+                            # Check if enemy
+                            is_enemy = 0
+                            if self.team == 0:
+                                if global_idx >= self.N: is_enemy = 1
+                            else:
+                                if global_idx < self.N: is_enemy = 1
+                                
+                            if is_enemy:
+                                j = global_idx % self.N
+                                if enemy_health[j] > 0.0:
+                                    diff = self.pos[i] - enemy_pos[j]
+                                    dist_sq = diff.norm_sqr()
+                                    if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
+                                        min_dist_sq = dist_sq
+                                        target_idx = j
             
             if target_idx >= 0 and self.projectile_free_count[None] > 0:
                 free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
@@ -722,10 +663,10 @@ class DroneSwarm:
                 continue
             
             # Grid lookup for hit detection
-            pos_p = self.projectile_pos[i] + enemy_grid_offset
-            base_x = int(pos_p.x / enemy_cell_size) + self.grid_padding
-            base_y = int(pos_p.y / enemy_cell_size) + self.grid_padding
-            base_z = int(pos_p.z / enemy_cell_size) + self.grid_padding
+            pos_p = self.projectile_pos[i] + grid_offset
+            base_x = int(pos_p.x / grid_cell_size) + grid_padding
+            base_y = int(pos_p.y / grid_cell_size) + grid_padding
+            base_z = int(pos_p.z / grid_cell_size) + grid_padding
             
             hit_detected = 0
             
@@ -733,23 +674,33 @@ class DroneSwarm:
                 for dy in ti.static(range(-1, 2)):
                     for dz in ti.static(range(-1, 2)):
                         if hit_detected == 0:
-                            gx = ti.math.clamp(base_x + dx, 0, enemy_grid_shape[0] - 1)
-                            gy = ti.math.clamp(base_y + dy, 0, enemy_grid_shape[1] - 1)
-                            gz = ti.math.clamp(base_z + dz, 0, enemy_grid_shape[2] - 1)
+                            gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
+                            gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
+                            gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
                             
-                            cell_count = enemy_grid_count[gx, gy, gz]
-                            limit = ti.min(cell_count, self.max_cell_capacity)
+                            cell_count = grid_count[gx, gy, gz]
+                            limit = ti.min(cell_count, grid_buckets.shape[3])
                             
                             for k in range(limit):
-                                j = enemy_grid_buckets[gx, gy, gz, k]
-                                if enemy_health[j] > 0.0:
-                                    diff = self.projectile_pos[i] - enemy_pos[j]
-                                    dist_sq = diff.norm_sqr()
-                                    if dist_sq < hit_radius_sq:
-                                        self.projectile_active[i] = 0
-                                        self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
-                                        ti.atomic_add(enemy_health[j], -self.projectile_damage)
-                                        free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
-                                        self.projectile_free_list[free_idx] = i
-                                        hit_detected = 1
-                                        break
+                                global_idx = grid_buckets[gx, gy, gz, k]
+                                
+                                # Check if enemy
+                                is_enemy = 0
+                                if self.team == 0:
+                                    if global_idx >= self.N: is_enemy = 1
+                                else:
+                                    if global_idx < self.N: is_enemy = 1
+                                    
+                                if is_enemy:
+                                    j = global_idx % self.N
+                                    if enemy_health[j] > 0.0:
+                                        diff = self.projectile_pos[i] - enemy_pos[j]
+                                        dist_sq = diff.norm_sqr()
+                                        if dist_sq < hit_radius_sq:
+                                            self.projectile_active[i] = 0
+                                            self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                                            ti.atomic_add(enemy_health[j], -self.projectile_damage)
+                                            free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
+                                            self.projectile_free_list[free_idx] = i
+                                            hit_detected = 1
+                                            break
