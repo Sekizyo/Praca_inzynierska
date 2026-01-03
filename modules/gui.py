@@ -69,6 +69,7 @@ class GUI():
             self.GuiState.SHOW_VORONOI = self.gui.checkbox("Show Voronoi", self.GuiState.SHOW_VORONOI)
             self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
             self.GuiState.SHOW_SHOOT_RANGE = self.gui.checkbox("Show Shooting Range", self.GuiState.SHOW_SHOOT_RANGE)
+            self.GuiState.SHOW_GRID = self.gui.checkbox("Show Grid", self.GuiState.SHOW_GRID)
             
             player_swarm = self.swarms.get_player_swarm()
             enemy_swarm = self.swarms.get_enemy_swarm()

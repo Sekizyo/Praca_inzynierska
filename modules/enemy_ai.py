@@ -22,58 +22,19 @@ class EnemyAI:
         
         self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.target_field[0] = self.patrol_waypoints[0]
-        
-        self.distance_cache = ti.field(dtype=ti.f32, shape=())
     
     def get_target_field(self):
         return self.target_field
     
-    @ti.kernel
-    def _compute_distance_to_player(self, player_pos: ti.template(), player_count: ti.i32, player_health: ti.template()):
-        enemy_x = 0.0
-        enemy_y = 0.0
-        enemy_z = 0.0
-        enemy_count = 0
-        
-        for i in range(self.swarm.N):
-            if self.swarm.active[i] == 1:
-                enemy_x += self.swarm.pos[i].x
-                enemy_y += self.swarm.pos[i].y
-                enemy_z += self.swarm.pos[i].z
-                enemy_count += 1
-        
-        player_x = 0.0
-        player_y = 0.0
-        player_z = 0.0
-        p_count = 0
-        
-        for i in range(player_count):
-            if player_health[i] > 0.0:
-                player_x += player_pos[i].x
-                player_y += player_pos[i].y
-                player_z += player_pos[i].z
-                p_count += 1
-        
-        if enemy_count > 0 and p_count > 0:
-            enemy_x /= ti.cast(enemy_count, ti.f32)
-            enemy_y /= ti.cast(enemy_count, ti.f32)
-            enemy_z /= ti.cast(enemy_count, ti.f32)
-            
-            player_x /= ti.cast(p_count, ti.f32)
-            player_y /= ti.cast(p_count, ti.f32)
-            player_z /= ti.cast(p_count, ti.f32)
-            
-            dx = enemy_x - player_x
-            dy = enemy_y - player_y
-            dz = enemy_z - player_z
-            
-            self.distance_cache[None] = ti.sqrt(dx * dx + dy * dy + dz * dz)
-        else:
-            self.distance_cache[None] = 1e10
-    
     def _get_distance_to_player(self, player_swarm: DroneSwarm) -> float:
-        self._compute_distance_to_player(player_swarm.pos, player_swarm.N, player_swarm.health)
-        return self.distance_cache[None]
+        enemy_center = self.swarm.get_swarm_center()
+        player_center = player_swarm.get_swarm_center()
+        
+        dx = enemy_center[0] - player_center[0]
+        dy = enemy_center[1] - player_center[1]
+        dz = enemy_center[2] - player_center[2]
+        
+        return math.sqrt(dx*dx + dy*dy + dz*dz)
     
     def update(self, dt: float, player_swarm: DroneSwarm, player_territory: float) -> None:
         self._evaluate_state(player_swarm, player_territory)

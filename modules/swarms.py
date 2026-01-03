@@ -1,5 +1,5 @@
 from modules.drone import DroneSwarm
-from modules.colors import PLAYER_COLOR, ENEMY_COLOR, PROJECTILE_COLOR
+from modules.colors import PLAYER_COLOR, ENEMY_COLOR, PROJECTILE_COLOR, GRID_COLOR
 import taichi as ti
 from taichi.ui.scene import SceneV2
 
@@ -22,6 +22,10 @@ class Swarms():
         self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
         
     def _update_logic(self, dt: float, player_territory: float) -> None:
+        # Update grids first
+        self.player_swarm.update_grid()
+        self.enemy_swarm.update_grid()
+
         # Update AI for enemy swarm
         self.enemy_ai.update(dt, self.player_swarm, player_territory)
         
@@ -31,10 +35,45 @@ class Swarms():
         
         # Batched combat updates - combines shooting, projectile updates, and hit detection
         # This reduces kernel launch overhead from 6 separate calls to 2
-        self.player_swarm.batched_combat_update(dt, self.enemy_swarm.get_pos_field(), self.enemy_swarm.N, self.enemy_swarm.health)
-        self.enemy_swarm.batched_combat_update(dt, self.player_swarm.get_pos_field(), self.player_swarm.N, self.player_swarm.health)
+        self.player_swarm.batched_combat_update(
+            dt, 
+            self.enemy_swarm.get_pos_field(), 
+            self.enemy_swarm.N, 
+            self.enemy_swarm.health,
+            self.enemy_swarm.get_grid_count(),
+            self.enemy_swarm.get_grid_buckets(),
+            self.enemy_swarm.get_grid_offset(),
+            self.enemy_swarm.get_grid_shape(),
+            self.enemy_swarm.grid_cell_size
+        )
+        self.enemy_swarm.batched_combat_update(
+            dt, 
+            self.player_swarm.get_pos_field(), 
+            self.player_swarm.N, 
+            self.player_swarm.health,
+            self.player_swarm.get_grid_count(),
+            self.player_swarm.get_grid_buckets(),
+            self.player_swarm.get_grid_offset(),
+            self.player_swarm.get_grid_shape(),
+            self.player_swarm.grid_cell_size
+        )
         
     def _draw(self, gui_state: GuiState) -> None:
+        if gui_state.SHOW_GRID:
+            self.player_swarm.update_grid_vis()
+            self.enemy_swarm.update_grid_vis()
+            
+            # Draw only active cells
+            p_lines = self.player_swarm.get_grid_lines()
+            p_count = self.player_swarm.get_grid_line_count()
+            if p_count > 0:
+                self.scene.lines(p_lines, indices=None, vertex_count=p_count, color=GRID_COLOR, width=1.0)
+                
+            e_lines = self.enemy_swarm.get_grid_lines()
+            e_count = self.enemy_swarm.get_grid_line_count()
+            if e_count > 0:
+                self.scene.lines(e_lines, indices=None, vertex_count=e_count, color=GRID_COLOR, width=1.0)
+
         if gui_state.SHOW_SHOOT_RANGE:
             self.player_swarm.compute_range_circles()
             self.enemy_swarm.compute_range_circles()
