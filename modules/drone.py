@@ -43,6 +43,9 @@ class DroneSwarm:
         self.projectile_active: Field = ti.field(dtype=ti.i32, shape=self.max_projectiles)
         self.projectile_lifetime: Field = ti.field(dtype=ti.f32, shape=self.max_projectiles)
         
+        self.projectile_free_list: Field = ti.field(dtype=ti.i32, shape=self.max_projectiles)
+        self.projectile_free_count: Field = ti.field(dtype=ti.i32, shape=())
+        
         max_segments = self.N * self.segments_per_circle * 2
         self.range_circles = ti.Vector.field(3, dtype=ti.f32, shape=max_segments)
         
@@ -91,6 +94,9 @@ class DroneSwarm:
         for i in range(self.max_projectiles):
             self.projectile_active[i] = 0
             self.projectile_lifetime[i] = 0.0
+            self.projectile_free_list[i] = i
+        
+        self.projectile_free_count[None] = self.max_projectiles
             
     def get_mode(self) -> DroneModes:   
         return self.mode
@@ -271,16 +277,16 @@ class DroneSwarm:
                     min_dist = dist
                     target_idx = j
             
-            if target_idx >= 0:
-                for p in range(self.max_projectiles):
-                    if self.projectile_active[p] == 0:
-                        direction = (enemy_pos[target_idx] - self.pos[i]).normalized()
-                        self.projectile_pos[p] = self.pos[i]
-                        self.projectile_vel[p] = direction * self.projectile_speed
-                        self.projectile_active[p] = 1
-                        self.projectile_lifetime[p] = self.projectile_max_lifetime
-                        self.cooldown[i] = self.shoot_cooldown
-                        break
+            if target_idx >= 0 and self.projectile_free_count[None] > 0:
+                free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
+                if free_idx >= 0:
+                    p = self.projectile_free_list[free_idx]
+                    direction = (enemy_pos[target_idx] - self.pos[i]).normalized()
+                    self.projectile_pos[p] = self.pos[i]
+                    self.projectile_vel[p] = direction * self.projectile_speed
+                    self.projectile_active[p] = 1
+                    self.projectile_lifetime[p] = self.projectile_max_lifetime
+                    self.cooldown[i] = self.shoot_cooldown
 
     @ti.kernel
     def update_projectiles(self, dt: ti.f32):
@@ -291,19 +297,23 @@ class DroneSwarm:
             self.projectile_pos[i] += self.projectile_vel[i] * dt
             self.projectile_lifetime[i] -= dt
             
+            should_deactivate = 0
+            
             if self.projectile_lifetime[i] <= 0.0:
-                self.projectile_active[i] = 0
-                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                should_deactivate = 1
             
             if self.projectile_pos[i].x > self.boundary or self.projectile_pos[i].x < -self.boundary:
-                self.projectile_active[i] = 0
-                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                should_deactivate = 1
             if self.projectile_pos[i].y > self.boundary or self.projectile_pos[i].y < -self.boundary:
-                self.projectile_active[i] = 0
-                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                should_deactivate = 1
             if self.projectile_pos[i].z > self.boundary or self.projectile_pos[i].z < 0.0:
+                should_deactivate = 1
+            
+            if should_deactivate == 1:
                 self.projectile_active[i] = 0
                 self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
+                self.projectile_free_list[free_idx] = i
 
     @ti.kernel
     def check_hits(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
@@ -320,6 +330,8 @@ class DroneSwarm:
                     self.projectile_active[i] = 0
                     self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
                     ti.atomic_add(enemy_health[j], -self.projectile_damage)
+                    free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
+                    self.projectile_free_list[free_idx] = i
                     break
     
     @ti.kernel
