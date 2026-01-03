@@ -74,13 +74,24 @@ class GUI():
             enemy_swarm = self.swarms.get_enemy_swarm()
             enemy_ai = self.swarms.get_enemy_ai()
             
-            self.gui.text(f"Player drones: {player_swarm.get_alive_count()}")
-            self.gui.text(f"Enemy drones: {enemy_swarm.get_alive_count()}")
-            # self.gui.text(f"Player health: {player_swarm.get_health_ratio():.2f}")
-            # self.gui.text(f"Enemy health: {enemy_swarm.get_health_ratio():.2f}")
+            # Calculate domination score
+            player_count = player_swarm.get_alive_count()
+            enemy_count = enemy_swarm.get_alive_count()
+            total_drones = player_count + enemy_count
+            
+            if total_drones > 0:
+                drone_ratio = player_count / total_drones
+                territory_ratio = self.player_territory / 100.0
+                domination = (drone_ratio * 0.7 + territory_ratio * 0.3)
+            else:
+                domination = 0.5
+            
+            self.gui.text(f"Player drones: {player_count}")
+            self.gui.text(f"Enemy drones: {enemy_count}")
             self.gui.text(f"Player mode: {player_swarm.get_mode()}")
             self.gui.text(f"Enemy AI state: {enemy_ai.get_state()}")
             self.gui.text(f"Territory: {self.player_territory:.1f}%")
+            self.gui.text(f"Win percentage: {domination*100:.1f}%")
             
     @run_every_n_calls(20)
     def _calc_voronoi(self) -> None:
