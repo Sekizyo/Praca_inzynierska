@@ -4,39 +4,76 @@ from modules.constants import DroneModes
 from modules.drone import DroneSwarm
 from modules.utils import run_every_n_calls
 
+@ti.data_oriented
 class EnemyAI:
     def __init__(self, enemy_swarm: DroneSwarm, map_size: float):
         self.swarm = enemy_swarm
         self.map_size = map_size
         self.state = DroneModes.PATROL
         
-        # AI parameters
         self.engage_distance = 400.0
         self.health_spread_threshold = 0.7
         
-        # Patrol waypoints
         half_size = map_size * 0.5
         self.patrol_waypoints = [
             [half_size, half_size, half_size],
         ]
         self.current_waypoint = 0
         
-        # Target field
         self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.target_field[0] = self.patrol_waypoints[0]
+        
+        self.distance_cache = ti.field(dtype=ti.f32, shape=())
     
     def get_target_field(self):
         return self.target_field
     
+    @ti.kernel
+    def _compute_distance_to_player(self, player_pos: ti.template(), player_count: ti.i32, player_health: ti.template()):
+        enemy_x = 0.0
+        enemy_y = 0.0
+        enemy_z = 0.0
+        enemy_count = 0
+        
+        for i in range(self.swarm.N):
+            if self.swarm.active[i] == 1:
+                enemy_x += self.swarm.pos[i].x
+                enemy_y += self.swarm.pos[i].y
+                enemy_z += self.swarm.pos[i].z
+                enemy_count += 1
+        
+        player_x = 0.0
+        player_y = 0.0
+        player_z = 0.0
+        p_count = 0
+        
+        for i in range(player_count):
+            if player_health[i] > 0.0:
+                player_x += player_pos[i].x
+                player_y += player_pos[i].y
+                player_z += player_pos[i].z
+                p_count += 1
+        
+        if enemy_count > 0 and p_count > 0:
+            enemy_x /= ti.cast(enemy_count, ti.f32)
+            enemy_y /= ti.cast(enemy_count, ti.f32)
+            enemy_z /= ti.cast(enemy_count, ti.f32)
+            
+            player_x /= ti.cast(p_count, ti.f32)
+            player_y /= ti.cast(p_count, ti.f32)
+            player_z /= ti.cast(p_count, ti.f32)
+            
+            dx = enemy_x - player_x
+            dy = enemy_y - player_y
+            dz = enemy_z - player_z
+            
+            self.distance_cache[None] = ti.sqrt(dx * dx + dy * dy + dz * dz)
+        else:
+            self.distance_cache[None] = 1e10
+    
     def _get_distance_to_player(self, player_swarm: DroneSwarm) -> float:
-        swarm_center = self.swarm.get_swarm_center()
-        player_center = player_swarm.get_swarm_center()
-        
-        dx = swarm_center[0] - player_center[0]
-        dy = swarm_center[1] - player_center[1]
-        dz = swarm_center[2] - player_center[2]
-        
-        return math.sqrt(dx * dx + dy * dy + dz * dz)
+        self._compute_distance_to_player(player_swarm.pos, player_swarm.N, player_swarm.health)
+        return self.distance_cache[None]
     
     def update(self, dt: float, player_swarm: DroneSwarm, player_territory: float) -> None:
         self._evaluate_state(player_swarm, player_territory)
@@ -75,24 +112,61 @@ class EnemyAI:
         self.target_field[0] = player_swarm.get_swarm_center()
         self.target_field[0][2] = self.map_size * 0.5 
     
-    def _execute_spread(self, player_swarm: DroneSwarm) -> None:
-        player_center = player_swarm.get_swarm_center()
-        swarm_center = self.swarm.get_swarm_center()
+    @ti.kernel
+    def _compute_retreat_direction(self, player_pos: ti.template(), player_count: ti.i32, player_health: ti.template()):
+        enemy_x = 0.0
+        enemy_y = 0.0
+        enemy_z = 0.0
+        enemy_count = 0
         
-        dx = swarm_center[0] - player_center[0]
-        dy = swarm_center[1] - player_center[1]
-        dz = swarm_center[2] - player_center[2]
-        dist_sq = dx*dx + dy*dy + dz*dz
+        for i in range(self.swarm.N):
+            if self.swarm.active[i] == 1:
+                enemy_x += self.swarm.pos[i].x
+                enemy_y += self.swarm.pos[i].y
+                enemy_z += self.swarm.pos[i].z
+                enemy_count += 1
         
-        if dist_sq > 0.01:
-            inv_dist = 1.0 / math.sqrt(dist_sq)
-            self.target_field[0] = [
-                swarm_center[0] + dx * inv_dist * 100.0,
-                swarm_center[1] + dy * inv_dist * 100.0,
-                swarm_center[2]
-            ]
+        player_x = 0.0
+        player_y = 0.0
+        player_z = 0.0
+        p_count = 0
+        
+        for i in range(player_count):
+            if player_health[i] > 0.0:
+                player_x += player_pos[i].x
+                player_y += player_pos[i].y
+                player_z += player_pos[i].z
+                p_count += 1
+        
+        if enemy_count > 0 and p_count > 0:
+            enemy_x /= ti.cast(enemy_count, ti.f32)
+            enemy_y /= ti.cast(enemy_count, ti.f32)
+            enemy_z /= ti.cast(enemy_count, ti.f32)
+            
+            player_x /= ti.cast(p_count, ti.f32)
+            player_y /= ti.cast(p_count, ti.f32)
+            player_z /= ti.cast(p_count, ti.f32)
+            
+            dx = enemy_x - player_x
+            dy = enemy_y - player_y
+            dz = enemy_z - player_z
+            dist_sq = dx*dx + dy*dy + dz*dz
+            
+            if dist_sq > 1e-4:
+                inv_dist = ti.rsqrt(dist_sq)
+                retreat_distance = 100.0
+                self.target_field[0] = ti.Vector([
+                    enemy_x + dx * inv_dist * retreat_distance,
+                    enemy_y + dy * inv_dist * retreat_distance,
+                    enemy_z
+                ])
+            else:
+                self.target_field[0] = ti.Vector([self.map_size * 0.9, self.map_size * 0.9, self.map_size * 1.0])
         else:
-            self.target_field[0] = [self.map_size * 0.9, self.map_size * 0.9, self.map_size * 1.0]
+            self.target_field[0] = ti.Vector([self.map_size * 0.9, self.map_size * 0.9, self.map_size * 1.0])
+    
+    def _execute_spread(self, player_swarm: DroneSwarm) -> None:
+        self._compute_retreat_direction(player_swarm.pos, player_swarm.N, player_swarm.health)
     
     def get_state(self) -> DroneModes:
         return self.state

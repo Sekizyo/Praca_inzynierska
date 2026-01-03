@@ -34,21 +34,26 @@ class VoronoiDiagram:
         B = self.boundary
         
         self.player_cells[None] = 0
+        res_minus_1 = res - 1
+        inv_res = 1.0 / ti.cast(res_minus_1, ti.f32)
         
-        for i, j in ti.ndrange(res - 1, res - 1):
-            cell_idx = i * (res - 1) + j
+        for i, j in ti.ndrange(res_minus_1, res_minus_1):
+            cell_idx = i * res_minus_1 + j
             tri_idx = cell_idx * 2
             vert_idx = tri_idx * 3
             
-            x0 = (ti.cast(i, ti.f32) / (res - 1) - 0.5) * 2.0 * B
-            y0 = (ti.cast(j, ti.f32) / (res - 1) - 0.5) * 2.0 * B
-            x1 = (ti.cast(i + 1, ti.f32) / (res - 1) - 0.5) * 2.0 * B
-            y1 = (ti.cast(j + 1, ti.f32) / (res - 1) - 0.5) * 2.0 * B
+            i_f = ti.cast(i, ti.f32)
+            j_f = ti.cast(j, ti.f32)
+            
+            x0 = (i_f * inv_res - 0.5) * 2.0 * B
+            y0 = (j_f * inv_res - 0.5) * 2.0 * B
+            x1 = ((i_f + 1.0) * inv_res - 0.5) * 2.0 * B
+            y1 = ((j_f + 1.0) * inv_res - 0.5) * 2.0 * B
             
             cx = (x0 + x1) * 0.5
             cy = (y0 + y1) * 0.5
             
-            min_dist = ti.cast(1e10, ti.f32)
+            min_dist_sq = 1e20
             is_player = 0
             
             for k in range(player_count):
@@ -56,9 +61,9 @@ class VoronoiDiagram:
                     continue
                 dx = player_pos[k].x - cx
                 dy = player_pos[k].y - cy
-                dist = ti.sqrt(dx * dx + dy * dy)
-                if dist < min_dist:
-                    min_dist = dist
+                dist_sq = dx * dx + dy * dy
+                if dist_sq < min_dist_sq:
+                    min_dist_sq = dist_sq
                     is_player = 1
             
             for k in range(enemy_count):
@@ -66,9 +71,9 @@ class VoronoiDiagram:
                     continue
                 dx = enemy_pos[k].x - cx
                 dy = enemy_pos[k].y - cy
-                dist = ti.sqrt(dx * dx + dy * dy)
-                if dist < min_dist:
-                    min_dist = dist
+                dist_sq = dx * dx + dy * dy
+                if dist_sq < min_dist_sq:
+                    min_dist_sq = dist_sq
                     is_player = 0
             
             color = self.player_color if is_player == 1 else self.enemy_color
@@ -84,7 +89,7 @@ class VoronoiDiagram:
             self.vertices[vert_idx + 4] = [x1, y1, 0.1]
             self.vertices[vert_idx + 5] = [x0, y1, 0.1]
             
-            for v in range(6):
+            for v in ti.static(range(6)):
                 self.colors[vert_idx + v] = color
     
     def update(self, player_pos: MatrixField, player_count: int, player_health: Field, enemy_pos: MatrixField, enemy_count: int, enemy_health: Field) -> float:

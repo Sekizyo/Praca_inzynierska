@@ -116,58 +116,75 @@ class DroneSwarm:
     def separation(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
+        perception_sq = (self.perception_radius * 0.6) ** 2
+        
         for j in range(self.N):
             if i != j and self.active[j] == 1:
-                dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
-                if dist_sq < (self.perception_radius * 0.6) ** 2 and dist_sq > 0:
-                    diff = self.pos[i] - self.pos[j]
-                    diff = diff.normalized() / ti.sqrt(dist_sq)
-                    steering += diff
+                diff = self.pos[i] - self.pos[j]
+                dist_sq = diff.norm_sqr()
+                if dist_sq < perception_sq and dist_sq > 1e-6:
+                    inv_dist = ti.rsqrt(dist_sq)
+                    steering += diff * inv_dist * inv_dist
                     count += 1
+        
         if count > 0:
-            steering /= count
-            if steering.norm() > 0:
-                steering = steering.normalized() * self.max_speed
-                steering -= self.vel[i]
-                if steering.norm() > self.max_force:
-                    steering = steering.normalized() * self.max_force
+            steering /= ti.cast(count, ti.f32)
+            steering_norm = steering.norm()
+            if steering_norm > 1e-6:
+                desired_vel = steering * (self.max_speed / steering_norm)
+                steering = desired_vel - self.vel[i]
+                steering_norm = steering.norm()
+                if steering_norm > self.max_force:
+                    steering *= (self.max_force / steering_norm)
         return steering
 
     @ti.func
     def alignment(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
+        perception_sq = self.perception_radius ** 2
+        
         for j in range(self.N):
             if i != j and self.active[j] == 1:
-                dist = (self.pos[i] - self.pos[j]).norm()
-                if dist < self.perception_radius:
+                dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
+                if dist_sq < perception_sq:
                     steering += self.vel[j]
                     count += 1
+        
         if count > 0:
-            steering /= count
-            steering = steering.normalized() * self.max_speed
-            steering -= self.vel[i]
-            if steering.norm() > self.max_force:
-                steering = steering.normalized() * self.max_force
+            steering /= ti.cast(count, ti.f32)
+            steering_norm = steering.norm()
+            if steering_norm > 1e-6:
+                desired_vel = steering * (self.max_speed / steering_norm)
+                steering = desired_vel - self.vel[i]
+                steering_norm = steering.norm()
+                if steering_norm > self.max_force:
+                    steering *= (self.max_force / steering_norm)
         return steering
 
     @ti.func
     def cohesion(self, i: ti.i32) -> ti.types.vector(3, ti.f32):
         steering = ti.Vector([0.0, 0.0, 0.0])
         count = 0
+        perception_sq = self.perception_radius ** 2
+        
         for j in range(self.N):
             if i != j and self.active[j] == 1:
-                dist = (self.pos[i] - self.pos[j]).norm()
-                if dist < self.perception_radius:
+                dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
+                if dist_sq < perception_sq:
                     steering += self.pos[j]
                     count += 1
+        
         if count > 0:
-            steering /= count
+            steering /= ti.cast(count, ti.f32)
             desired = steering - self.pos[i]
-            desired = desired.normalized() * self.max_speed
-            steering = desired - self.vel[i]
-            if steering.norm() > self.max_force:
-                steering = steering.normalized() * self.max_force
+            desired_norm = desired.norm()
+            if desired_norm > 1e-6:
+                desired *= (self.max_speed / desired_norm)
+                steering = desired - self.vel[i]
+                steering_norm = steering.norm()
+                if steering_norm > self.max_force:
+                    steering *= (self.max_force / steering_norm)
         return steering
     
     @ti.kernel
@@ -209,51 +226,50 @@ class DroneSwarm:
             self.acc[i] += ali * self.alignment_modifier[None]
             self.acc[i] += coh * self.cohesion_modifier[None]
             
-            # Boundary constraints - soft walls with stronger force
             boundary_force = self.max_force * 5.0
-            margin = 10.0  # Distance from boundary where force starts
+            margin = 10.0
+            boundary_max = self.boundary - margin
+            boundary_min = -self.boundary + margin
+            inv_margin = 1.0 / margin
             
-            if self.pos[i].x > self.boundary - margin:
-                self.acc[i].x -= boundary_force * (self.pos[i].x - (self.boundary - margin)) / margin
-            if self.pos[i].x < -self.boundary + margin:
-                self.acc[i].x += boundary_force * ((-self.boundary + margin) - self.pos[i].x) / margin
-            if self.pos[i].y > self.boundary - margin:
-                self.acc[i].y -= boundary_force * (self.pos[i].y - (self.boundary - margin)) / margin
-            if self.pos[i].y < -self.boundary + margin:
-                self.acc[i].y += boundary_force * ((-self.boundary + margin) - self.pos[i].y) / margin
-            if self.pos[i].z > self.boundary - margin:
-                self.acc[i].z -= boundary_force * (self.pos[i].z - (self.boundary - margin)) / margin
-            if self.pos[i].z < margin:
-                self.acc[i].z += boundary_force * (margin - self.pos[i].z) / margin
+            pos = self.pos[i]
             
-            # Hard clamp - prevent going outside boundaries
-            if self.pos[i].x > self.boundary:
-                self.pos[i].x = self.boundary
+            if pos.x > boundary_max:
+                self.acc[i].x -= boundary_force * (pos.x - boundary_max) * inv_margin
+            elif pos.x < boundary_min:
+                self.acc[i].x += boundary_force * (boundary_min - pos.x) * inv_margin
+            
+            if pos.y > boundary_max:
+                self.acc[i].y -= boundary_force * (pos.y - boundary_max) * inv_margin
+            elif pos.y < boundary_min:
+                self.acc[i].y += boundary_force * (boundary_min - pos.y) * inv_margin
+            
+            if pos.z > boundary_max:
+                self.acc[i].z -= boundary_force * (pos.z - boundary_max) * inv_margin
+            elif pos.z < margin:
+                self.acc[i].z += boundary_force * (margin - pos.z) * inv_margin
+            
+            self.pos[i].x = ti.math.clamp(pos.x, -self.boundary, self.boundary)
+            self.pos[i].y = ti.math.clamp(pos.y, -self.boundary, self.boundary)
+            self.pos[i].z = ti.math.clamp(pos.z, 0.0, self.boundary)
+            
+            if pos.x != self.pos[i].x:
                 self.vel[i].x = 0.0
-            if self.pos[i].x < -self.boundary:
-                self.pos[i].x = -self.boundary
-                self.vel[i].x = 0.0
-            if self.pos[i].y > self.boundary:
-                self.pos[i].y = self.boundary
+            if pos.y != self.pos[i].y:
                 self.vel[i].y = 0.0
-            if self.pos[i].y < -self.boundary:
-                self.pos[i].y = -self.boundary
-                self.vel[i].y = 0.0
-            if self.pos[i].z > self.boundary:
-                self.pos[i].z = self.boundary
-                self.vel[i].z = 0.0
-            if self.pos[i].z < 0.0:
-                self.pos[i].z = 0.0
+            if pos.z != self.pos[i].z:
                 self.vel[i].z = 0.0
             
-            direction = (target_pos[0] - self.pos[i]).normalized()
-            self.acc[i] += direction * self.target_weight[None]
+            direction = target_pos[0] - self.pos[i]
+            dir_norm = direction.norm()
+            if dir_norm > 1e-6:
+                self.acc[i] += direction * (self.target_weight[None] / dir_norm)
 
             self.vel[i] += self.acc[i] * dt
             
             vel_norm = self.vel[i].norm()
             if vel_norm > self.max_speed:
-                self.vel[i] = self.vel[i].normalized() * self.max_speed
+                self.vel[i] *= (self.max_speed / vel_norm)
             
             self.pos[i] += self.vel[i] * dt
             
@@ -267,28 +283,32 @@ class DroneSwarm:
 
     @ti.kernel
     def shoot(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
+        shoot_range_sq = self.shoot_range * self.shoot_range
+        
         for i in range(self.N):
             if self.active[i] == 0 or self.cooldown[i] > 0.0:
                 continue
             
-            min_dist = ti.cast(1e10, ti.f32)
+            min_dist_sq = 1e20
             target_idx = -1
             
             for j in range(enemy_count):
                 if enemy_health[j] <= 0.0:
                     continue
-                dist = (self.pos[i] - enemy_pos[j]).norm()
-                if dist < self.shoot_range and dist < min_dist:
-                    min_dist = dist
+                diff = self.pos[i] - enemy_pos[j]
+                dist_sq = diff.norm_sqr()
+                if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
+                    min_dist_sq = dist_sq
                     target_idx = j
             
             if target_idx >= 0 and self.projectile_free_count[None] > 0:
                 free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
                 if free_idx >= 0:
                     p = self.projectile_free_list[free_idx]
-                    direction = (enemy_pos[target_idx] - self.pos[i]).normalized()
+                    direction = enemy_pos[target_idx] - self.pos[i]
+                    inv_dist = ti.rsqrt(min_dist_sq)
                     self.projectile_pos[p] = self.pos[i]
-                    self.projectile_vel[p] = direction * self.projectile_speed
+                    self.projectile_vel[p] = direction * (inv_dist * self.projectile_speed)
                     self.projectile_active[p] = 1
                     self.projectile_lifetime[p] = self.projectile_max_lifetime
                     self.cooldown[i] = self.shoot_cooldown
@@ -321,6 +341,8 @@ class DroneSwarm:
 
     @ti.kernel
     def check_hits(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
+        hit_radius_sq = self.hit_radius * self.hit_radius
+        
         for i in range(self.max_projectiles):
             if self.projectile_active[i] == 0:
                 continue
@@ -329,8 +351,9 @@ class DroneSwarm:
                 if enemy_health[j] <= 0.0:
                     continue
                 
-                dist = (self.projectile_pos[i] - enemy_pos[j]).norm()
-                if dist < self.hit_radius:
+                diff = self.projectile_pos[i] - enemy_pos[j]
+                dist_sq = diff.norm_sqr()
+                if dist_sq < hit_radius_sq:
                     self.projectile_active[i] = 0
                     self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
                     ti.atomic_add(enemy_health[j], -self.projectile_damage)
@@ -353,7 +376,7 @@ class DroneSwarm:
             if self.active[i] == 0:
                 continue
             
-            for seg in range(self.segments_per_circle):
+            for seg in ti.static(range(self.segments_per_circle)):
                 angle1 = (ti.cast(seg, ti.f32) / self.segments_per_circle) * 2.0 * 3.14159265359
                 angle2 = (ti.cast(seg + 1, ti.f32) / self.segments_per_circle) * 2.0 * 3.14159265359
                 mid_angle = (angle1 + angle2) * 0.5
@@ -445,44 +468,44 @@ class DroneSwarm:
         return self.projectile_active    
     @ti.kernel
     def batched_combat_update(self, dt: ti.f32, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
-        """Batched kernel combining shooting, projectile updates, and hit detection for better performance"""
-        # Phase 1: Shoot at enemies
+        shoot_range_sq = self.shoot_range * self.shoot_range
+        hit_radius_sq = self.hit_radius * self.hit_radius
+        
         for i in range(self.N):
             if self.active[i] == 0 or self.cooldown[i] > 0.0:
                 continue
             
-            min_dist = ti.cast(1e10, ti.f32)
+            min_dist_sq = 1e20
             target_idx = -1
             
             for j in range(enemy_count):
                 if enemy_health[j] <= 0.0:
                     continue
-                dist = (self.pos[i] - enemy_pos[j]).norm()
-                if dist < self.shoot_range and dist < min_dist:
-                    min_dist = dist
+                diff = self.pos[i] - enemy_pos[j]
+                dist_sq = diff.norm_sqr()
+                if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
+                    min_dist_sq = dist_sq
                     target_idx = j
             
             if target_idx >= 0 and self.projectile_free_count[None] > 0:
                 free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
                 if free_idx >= 0:
                     p = self.projectile_free_list[free_idx]
-                    direction = (enemy_pos[target_idx] - self.pos[i]).normalized()
+                    direction = enemy_pos[target_idx] - self.pos[i]
+                    inv_dist = ti.rsqrt(min_dist_sq)
                     self.projectile_pos[p] = self.pos[i]
-                    self.projectile_vel[p] = direction * self.projectile_speed
+                    self.projectile_vel[p] = direction * (inv_dist * self.projectile_speed)
                     self.projectile_active[p] = 1
                     self.projectile_lifetime[p] = self.projectile_max_lifetime
                     self.cooldown[i] = self.shoot_cooldown
         
-        # Phase 2: Update projectiles and check hits in one pass
         for i in range(self.max_projectiles):
             if self.projectile_active[i] == 0:
                 continue
             
-            # Update projectile position
             self.projectile_pos[i] += self.projectile_vel[i] * dt
             self.projectile_lifetime[i] -= dt
             
-            # Check boundary conditions
             pos = self.projectile_pos[i]
             should_deactivate = (
                 self.projectile_lifetime[i] <= 0.0 or
@@ -498,13 +521,13 @@ class DroneSwarm:
                 self.projectile_free_list[free_idx] = i
                 continue
             
-            # Check hits with enemies
             for j in range(enemy_count):
                 if enemy_health[j] <= 0.0:
                     continue
                 
-                dist = (self.projectile_pos[i] - enemy_pos[j]).norm()
-                if dist < self.hit_radius:
+                diff = self.projectile_pos[i] - enemy_pos[j]
+                dist_sq = diff.norm_sqr()
+                if dist_sq < hit_radius_sq:
                     self.projectile_active[i] = 0
                     self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
                     ti.atomic_add(enemy_health[j], -self.projectile_damage)
