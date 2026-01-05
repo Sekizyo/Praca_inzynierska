@@ -1,3 +1,4 @@
+from turtle import distance
 import taichi as ti
 import math
 from modules.constants import DroneModes
@@ -11,12 +12,17 @@ class EnemyAI:
         self.map_size = map_size
         self.state = DroneModes.PATROL
         
-        self.engage_distance = 400.0
-        self.health_spread_threshold = 0.7
+        self.engage_distance = 300.0
         
-        half_size = map_size * 0.5
+        # Define waypoints around the middle of the map (0,0)
+        patrol_radius = map_size * 0.25
+        patrol_height = map_size * 0.5
+        
         self.patrol_waypoints = [
-            [half_size, half_size, half_size],
+            [patrol_radius, patrol_radius, patrol_height],
+            [-patrol_radius, patrol_radius, patrol_height],
+            [-patrol_radius, -patrol_radius, patrol_height],
+            [patrol_radius, -patrol_radius, patrol_height],
         ]
         self.current_waypoint = 0
         
@@ -45,12 +51,12 @@ class EnemyAI:
         distance_to_player = self._get_distance_to_player(player_swarm)
         
         agression: float = round(player_territory / 100, 2)
-        if agression < 0.5:
-            new_state = DroneModes.SPREAD
-        elif agression >= 0.5 or distance_to_player < self.engage_distance:
-            new_state = DroneModes.ATTACK
-        else:
+        if distance_to_player > self.engage_distance:
             new_state = DroneModes.PATROL
+        elif agression < 0.5:
+            new_state = DroneModes.SPREAD
+        elif distance_to_player < self.engage_distance or agression >= 0.5:
+            new_state = DroneModes.ATTACK
         
         if self.state != new_state:
             self.state = new_state
@@ -68,6 +74,17 @@ class EnemyAI:
     def _execute_patrol(self) -> None:
         current_target = self.patrol_waypoints[self.current_waypoint]
         self.target_field[0] = current_target
+        
+        # Check if reached waypoint
+        swarm_center = self.swarm.get_swarm_center()
+        dist = math.sqrt(
+            (swarm_center[0] - current_target[0])**2 +
+            (swarm_center[1] - current_target[1])**2 +
+            (swarm_center[2] - current_target[2])**2
+        )
+        
+        if dist < 50.0:
+            self.current_waypoint = (self.current_waypoint + 1) % len(self.patrol_waypoints)
     
     def _execute_attack(self, player_swarm: DroneSwarm) -> None:
         self.target_field[0] = player_swarm.get_swarm_center()
