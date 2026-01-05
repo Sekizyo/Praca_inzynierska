@@ -124,8 +124,8 @@ class GUI():
         self._handle_input()
         
         if not self.GuiState.PAUSED:
-            self.swarms.update(self.dt, self.GuiState, self.player_territory)
-        
+            self.swarms.update_logic(self.dt, self.player_territory)
+        self.swarms.update_draw(self.GuiState)
         self._update_gui()
         self._calc_voronoi()
         if self.GuiState.SHOW_VORONOI:

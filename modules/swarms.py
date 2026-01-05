@@ -213,6 +213,8 @@ class Swarms():
     def set_player_target(self, x: float, y: float) -> None:
         self.player_target_field[0] = [x, y, self.map_size * 0.5]
         
-    def update(self, dt: float, gui_state: GuiState, player_territory: float) -> None:
+    def update_logic(self, dt: float, player_territory: float) -> None:
         self._update_logic(dt, player_territory)
+        
+    def update_draw(self, gui_state: GuiState) -> None:
         self._draw(gui_state)
