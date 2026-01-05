@@ -12,10 +12,28 @@ class Window():
         self.window: TWindow = TWindow(title, size, pos=(0,30),show_window=True, vsync=True, fps_limit=120)
         self.canvas: Canvas = self.window.get_canvas()
         self.scene = self.window.get_scene()
+        self.gui = None
+        self.is_loading = True
+        self.loading_frames = 0
+
+    def init_sim(self):
         self.gui = GUI(self.window.get_gui(), self.window, self.scene)
+        self.is_loading = False
+
+    def render_loading(self):
+        self.canvas.set_background_color((0, 0, 0))
+        with self.window.get_gui().sub_window("Loading", 0.4, 0.45, 0.2, 0.1):
+            self.window.get_gui().text("Loading Simulation...", color=(1, 1, 1))
     
     def run(self) -> None:
         while self.window.running:
-            self.gui.update()
-            self.canvas.scene(self.scene)
-            self.window.show()
+            if self.is_loading:
+                self.render_loading()
+                self.window.show()
+                self.loading_frames += 1
+                if self.loading_frames > 2:
+                    self.init_sim()
+            else:
+                self.gui.update()
+                self.canvas.scene(self.scene)
+                self.window.show()
