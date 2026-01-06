@@ -22,10 +22,9 @@ class Swarms():
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
         
-        # Shared Grid Initialization
-        self.grid_cell_size = 40.0
+        self.grid_cell_size = 80.0
         self.grid_padding = 2
-        self.max_cell_capacity = 100
+        self.max_cell_capacity = 300
         
         grid_dim = int(self.map_size * 2 / self.grid_cell_size) + 2 * self.grid_padding
         self.grid_shape = ti.Vector([grid_dim, grid_dim, grid_dim])
@@ -34,8 +33,7 @@ class Swarms():
         self.grid_count = ti.field(dtype=ti.i32, shape=self.grid_shape)
         self.grid_buckets = ti.field(dtype=ti.i32, shape=(self.grid_shape[0], self.grid_shape[1], self.grid_shape[2], self.max_cell_capacity))
         
-        # Grid Visualization
-        self.max_grid_lines = 20000
+        self.max_grid_lines = 3000
         self.grid_lines = ti.Vector.field(3, dtype=ti.f32, shape=self.max_grid_lines * 2)
         self.grid_line_count = ti.field(dtype=ti.i32, shape=())
 
@@ -44,7 +42,6 @@ class Swarms():
         for I in ti.grouped(self.grid_count):
             self.grid_count[I] = 0
             
-        # Add player drones
         for i in range(self.player_swarm.N):
             if self.player_swarm.active[i]:
                 pos = self.player_swarm.pos[i] + self.grid_offset
@@ -60,7 +57,6 @@ class Swarms():
                 if idx < self.max_cell_capacity:
                     self.grid_buckets[gx, gy, gz, idx] = i
                     
-        # Add enemy drones
         for i in range(self.enemy_swarm.N):
             if self.enemy_swarm.active[i]:
                 pos = self.enemy_swarm.pos[i] + self.grid_offset
@@ -120,13 +116,10 @@ class Swarms():
                     self.grid_lines[idx+22] = p3; self.grid_lines[idx+23] = p7
 
     def _update_logic(self, dt: float, player_territory: float) -> None:
-        # Update shared grid
         self.update_shared_grid()
 
-        # Update AI for enemy swarm
         self.enemy_ai.update(dt, self.player_swarm, player_territory)
         
-        # Update both swarms
         self.player_swarm.update(
             dt, 
             self.player_target_field,
@@ -148,7 +141,6 @@ class Swarms():
             self.grid_offset
         )
         
-        # Batched combat updates
         self.player_swarm.batched_combat_update(
             dt, 
             self.enemy_swarm.get_pos_field(), 
@@ -161,6 +153,7 @@ class Swarms():
             self.grid_cell_size,
             self.grid_padding
         )
+        
         self.enemy_swarm.batched_combat_update(
             dt, 
             self.player_swarm.get_pos_field(), 

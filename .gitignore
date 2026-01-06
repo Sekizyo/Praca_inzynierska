@@ -10,3 +10,6 @@ SPIRV-Tools/
 SPIRV*/
 *.ini
 .vscode/
+build/
+dist/
+*.spec

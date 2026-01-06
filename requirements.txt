@@ -6,3 +6,4 @@ numpy==2.2.6
 Pygments==2.19.2
 rich==14.2.0
 taichi==1.7.4
+pyinstaller

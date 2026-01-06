@@ -1,4 +1,3 @@
-from turtle import distance
 import taichi as ti
 import math
 from modules.constants import DroneModes
