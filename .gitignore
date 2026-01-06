@@ -13,3 +13,5 @@ SPIRV*/
 build/
 dist/
 *.spec
+*.docx
+*.pdf

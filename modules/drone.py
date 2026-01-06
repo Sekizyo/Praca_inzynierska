@@ -124,7 +124,6 @@ class DroneSwarm:
         
         rad_sep_sq = (self.perception_radius * 0.6) ** 2
         rad_ali_sq = self.perception_radius ** 2
-        rad_coh_sq = self.perception_radius ** 2
         
         pos_i = self.pos[i] + grid_offset
         base_x = int(pos_i.x / grid_cell_size) + grid_padding
@@ -302,83 +301,6 @@ class DroneSwarm:
                 self.active[i] = 0
                 self.pos[i] = ti.Vector([-10000.0, 0.0, 0.0])
 
-    @ti.kernel
-    def shoot(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
-        shoot_range_sq = self.shoot_range * self.shoot_range
-        
-        for i in range(self.N):
-            if self.active[i] == 0 or self.cooldown[i] > 0.0:
-                continue
-            
-            min_dist_sq = 1e20
-            target_idx = -1
-            
-            for j in range(enemy_count):
-                if enemy_health[j] <= 0.0:
-                    continue
-                diff = self.pos[i] - enemy_pos[j]
-                dist_sq = diff.norm_sqr()
-                if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
-                    min_dist_sq = dist_sq
-                    target_idx = j
-            
-            if target_idx >= 0 and self.projectile_free_count[None] > 0:
-                free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
-                if free_idx >= 0:
-                    p = self.projectile_free_list[free_idx]
-                    direction = enemy_pos[target_idx] - self.pos[i]
-                    inv_dist = ti.rsqrt(min_dist_sq)
-                    self.projectile_pos[p] = self.pos[i]
-                    self.projectile_vel[p] = direction * (inv_dist * self.projectile_speed)
-                    self.projectile_active[p] = 1
-                    self.projectile_lifetime[p] = self.projectile_max_lifetime
-                    self.cooldown[i] = self.shoot_cooldown
-
-    @ti.kernel
-    def update_projectiles(self, dt: ti.f32):
-        # Optimized batched projectile update
-        for i in range(self.max_projectiles):
-            if self.projectile_active[i] == 0:
-                continue
-            
-            self.projectile_pos[i] += self.projectile_vel[i] * dt
-            self.projectile_lifetime[i] -= dt
-            
-            pos = self.projectile_pos[i]
-            should_deactivate = (
-                self.projectile_lifetime[i] <= 0.0 or
-                pos.x > self.boundary or pos.x < -self.boundary or
-                pos.y > self.boundary or pos.y < -self.boundary or
-                pos.z > self.boundary or pos.z < 0.0
-            )
-            
-            if should_deactivate:
-                self.projectile_active[i] = 0
-                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
-                free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
-                self.projectile_free_list[free_idx] = i
-
-    @ti.kernel
-    def check_hits(self, enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):
-        hit_radius_sq = self.hit_radius * self.hit_radius
-        
-        for i in range(self.max_projectiles):
-            if self.projectile_active[i] == 0:
-                continue
-            
-            for j in range(enemy_count):
-                if enemy_health[j] <= 0.0:
-                    continue
-                
-                diff = self.projectile_pos[i] - enemy_pos[j]
-                dist_sq = diff.norm_sqr()
-                if dist_sq < hit_radius_sq:
-                    self.projectile_active[i] = 0
-                    self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
-                    ti.atomic_add(enemy_health[j], -self.projectile_damage)
-                    free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
-                    self.projectile_free_list[free_idx] = i
-                    break
     
     @ti.kernel
     def _compute_swarm_center(self):
@@ -541,9 +463,6 @@ class DroneSwarm:
         self._compute_swarm_center()
         return [self.center_x[None], self.center_y[None], self.center_z[None]]
                     
-    def get_range_circles(self) -> MatrixField:
-        return self.range_circles
-
     def get_pos_field(self) -> MatrixField:
         return self.pos
     
