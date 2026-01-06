@@ -52,7 +52,7 @@ class VoronoiDiagram:
             is_player = 0
             
             for k in range(player_count):
-                if player_health[k] <= 0.0:
+                if player_health[k][0] != 0:
                     continue
                 dx = player_pos[k].x - cx
                 dy = player_pos[k].y - cy
@@ -62,7 +62,7 @@ class VoronoiDiagram:
                     is_player = 1
             
             for k in range(enemy_count):
-                if enemy_health[k] <= 0.0:
+                if enemy_health[k][0] != 0:
                     continue
                 dx = enemy_pos[k].x - cx
                 dy = enemy_pos[k].y - cy

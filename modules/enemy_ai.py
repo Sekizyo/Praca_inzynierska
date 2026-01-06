@@ -95,7 +95,7 @@ class EnemyAI:
         enemy_count = 0
         
         for i in range(self.swarm.N):
-            if self.swarm.active[i] == 1:
+            if self.swarm.active[i][0] != 0:
                 enemy_x += self.swarm.pos[i].x
                 enemy_y += self.swarm.pos[i].y
                 enemy_z += self.swarm.pos[i].z
@@ -107,7 +107,7 @@ class EnemyAI:
         p_count = 0
         
         for i in range(player_count):
-            if player_health[i] > 0.0:
+            if player_health[i][0] != 0:
                 player_x += player_pos[i].x
                 player_y += player_pos[i].y
                 player_z += player_pos[i].z

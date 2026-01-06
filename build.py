@@ -4,16 +4,22 @@ import shutil
 from PyInstaller.utils.hooks import collect_all
 
 if os.path.exists('build'):
-    shutil.rmtree('build')
+    try:
+        shutil.rmtree('build')
+    except Exception as e:
+        print(f"Warning: Could not remove 'build' directory: {e}")
 if os.path.exists('dist'):
-    shutil.rmtree('dist')
+    try:
+        shutil.rmtree('dist')
+    except Exception as e:
+        print(f"Warning: Could not remove 'dist' directory: {e}")
 
 datas, binaries, hiddenimports = collect_all('taichi')
 
 args = [
     'run.py',                        # Your entry point script
     '--name=DroneVoronoiSim',        # Name of the executable
-    '--onedir',                      # Create a directory (faster startup than --onefile)
+    '--onefile',                     # Create a single file executable
     '--noconsole',                   # Hide the console window
     '--clean',                       # Clean PyInstaller cache
     '--exclude-module=modules',      # Exclude modules from PYZ to force loading from source

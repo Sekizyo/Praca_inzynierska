@@ -43,7 +43,7 @@ class Swarms():
             self.grid_count[I] = 0
             
         for i in range(self.player_swarm.N):
-            if self.player_swarm.active[i]:
+            if self.player_swarm.active[i][0] != 0:
                 pos = self.player_swarm.pos[i] + self.grid_offset
                 gx = int(pos.x / self.grid_cell_size) + self.grid_padding
                 gy = int(pos.y / self.grid_cell_size) + self.grid_padding
@@ -58,7 +58,7 @@ class Swarms():
                     self.grid_buckets[gx, gy, gz, idx] = i
                     
         for i in range(self.enemy_swarm.N):
-            if self.enemy_swarm.active[i]:
+            if self.enemy_swarm.active[i][0] != 0:
                 pos = self.enemy_swarm.pos[i] + self.grid_offset
                 gx = int(pos.x / self.grid_cell_size) + self.grid_padding
                 gy = int(pos.y / self.grid_cell_size) + self.grid_padding

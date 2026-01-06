@@ -28,9 +28,9 @@ class DroneSwarm:
         self.vel: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         self.acc: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         
-        self.active: Field = ti.field(dtype=ti.i32, shape=self.N)
-        self.health: Field = ti.field(dtype=ti.f32, shape=self.N)
-        self.cooldown: Field = ti.field(dtype=ti.f32, shape=self.N)
+        self.active: MatrixField = Vector.field(1, dtype=ti.i32, shape=self.N)
+        self.health: MatrixField = Vector.field(1, dtype=ti.f32, shape=self.N)
+        self.cooldown: MatrixField = Vector.field(1, dtype=ti.f32, shape=self.N)
         
         self.max_projectiles: int = count * 10
         self.projectile_pos: MatrixField = Vector.field(3, dtype=f32, shape=self.max_projectiles)
@@ -101,7 +101,7 @@ class DroneSwarm:
     def get_alive_count(self) -> ti.i32:
         count = 0
         for i in range(self.N):
-            if self.active[i] == 1:
+            if self.active[i][0] == 1:
                 count += 1
         return count
     
@@ -238,7 +238,7 @@ class DroneSwarm:
                grid_padding: ti.i32, 
                grid_offset: ti.types.vector(3, ti.f32)):
         for i in range(self.N):
-            if self.active[i] == 0:
+            if self.active[i][0] == 0:
                 continue
 
             self.acc[i] = ti.Vector([0.0, 0.0, 0.0])
@@ -293,11 +293,11 @@ class DroneSwarm:
             
             self.pos[i] += self.vel[i] * dt
             
-            if self.cooldown[i] > 0.0:
-                self.cooldown[i] -= dt
+            if self.cooldown[i][0] > 0.0:
+                self.cooldown[i][0] -= dt
             
             # Batched health check to reduce kernel launches
-            if self.health[i] <= 0.0:
+            if self.health[i][0] <= 0.0:
                 self.active[i] = 0
                 self.pos[i] = ti.Vector([-10000.0, 0.0, 0.0])
 
@@ -310,7 +310,7 @@ class DroneSwarm:
         count = 0
         
         for i in range(self.N):
-            if self.active[i] == 1:
+            if self.active[i][0] == 1:
                 total_x += self.pos[i][0]
                 total_y += self.pos[i][1]
                 total_z += self.pos[i][2]
@@ -341,7 +341,7 @@ class DroneSwarm:
         hit_radius_sq = self.hit_radius * self.hit_radius
         
         for i in range(self.N):
-            if self.active[i] == 0 or self.cooldown[i] > 0.0:
+            if self.active[i][0] == 0 or self.cooldown[i][0] > 0.0:
                 continue
             
             min_dist_sq = 1e20
@@ -375,7 +375,7 @@ class DroneSwarm:
                                 
                             if is_enemy:
                                 j = global_idx % self.N
-                                if enemy_health[j] > 0.0:
+                                if enemy_health[j][0] > 0.0:
                                     diff = self.pos[i] - enemy_pos[j]
                                     dist_sq = diff.norm_sqr()
                                     if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
@@ -447,13 +447,14 @@ class DroneSwarm:
                                     
                                 if is_enemy:
                                     j = global_idx % self.N
-                                    if enemy_health[j] > 0.0:
+                                    if enemy_health[j][0] > 0.0:
                                         diff = self.projectile_pos[i] - enemy_pos[j]
                                         dist_sq = diff.norm_sqr()
                                         if dist_sq < hit_radius_sq:
                                             self.projectile_active[i] = 0
                                             self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
-                                            ti.atomic_add(enemy_health[j], -self.projectile_damage)
+                                            # Using atomic_add on the specific component
+                                            ti.atomic_add(enemy_health[j][0], -self.projectile_damage)
                                             free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
                                             self.projectile_free_list[free_idx] = i
                                             hit_detected = 1
