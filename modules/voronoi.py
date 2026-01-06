@@ -8,22 +8,17 @@ class VoronoiDiagram:
         self.boundary: float = boundary
         self.resolution: int = resolution
         
-        # Number of triangles: 2 per grid cell
-        # Grid is (resolution x resolution), so (resolution-1)^2 cells
         self.num_cells = (resolution - 1) * (resolution - 1)
         self.num_triangles = self.num_cells * 2
         self.num_vertices = self.num_triangles * 3
         
-        # Vertices for rendering the plane as triangles
         self.vertices = ti.Vector.field(3, dtype=ti.f32, shape=self.num_vertices)
         self.colors = ti.Vector.field(3, dtype=ti.f32, shape=self.num_vertices)
         
-        # Territory tracking
         self.player_cells = ti.field(dtype=ti.i32, shape=())
         self.total_cells = ti.field(dtype=ti.i32, shape=())
         self.total_cells[None] = self.num_cells
         
-        # Colors for the two swarms
         self.player_color = ti.Vector([1.0, 0.2, 0.2])
         self.enemy_color = ti.Vector([0.2, 0.2, 1.0])
 

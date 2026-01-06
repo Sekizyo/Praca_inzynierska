@@ -66,11 +66,6 @@ class GUI():
             y = (mouse_pos[1] - 0.5) * self.MAP_SIZE * 2.0
             self.swarms.set_player_target(x, y)
 
-        
-    def _update_bourndary(self) -> None:
-        if self.GuiState.SHOW_BOUNDARY:
-            self.map.draw_boundary()
-            
     def _update_gui(self) -> None:
         self._calc_voronoi()
         
@@ -121,13 +116,15 @@ class GUI():
         
     def update(self) -> None:
         self._update_camera()
-        self._update_bourndary()
         self._handle_input()
         self._update_gui()
         
         if not self.GuiState.PAUSED:
             self.swarms.update_logic(self.dt, self.player_territory)
         self.swarms.update_draw(self.GuiState)
+        
+        if self.GuiState.SHOW_BOUNDARY:
+            self.map.draw_boundary()
             
         if self.GuiState.SHOW_VORONOI:
             self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())

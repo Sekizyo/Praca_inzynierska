@@ -1,11 +1,8 @@
 import taichi as ti
 
-from taichi import Vector, Field, MatrixField, data_oriented, func
-from taichi.types import vector, f32, i32
+from taichi import Vector, Field, MatrixField, data_oriented
+from taichi.types import f32
 from modules.constants import DroneModes
-from modules.gui_utils import GuiState
-
-from modules.utils import run_every_n_calls
 
 @data_oriented
 class DroneSwarm:
@@ -21,7 +18,6 @@ class DroneSwarm:
     projectile_damage: float = 25.0
     projectile_max_lifetime: float = 2.0
     projectile_radius: float = 0.5
-    segments_per_circle: int = 64
 
     def __init__(self, count: int, boundary_size: float, team: int = 0) -> None:
         self.N: int = count
@@ -45,19 +41,11 @@ class DroneSwarm:
         self.projectile_free_list: Field = ti.field(dtype=ti.i32, shape=self.max_projectiles)
         self.projectile_free_count: Field = ti.field(dtype=ti.i32, shape=())
         
-        max_segments = self.N * self.segments_per_circle * 2
-        self.range_circles = ti.Vector.field(3, dtype=ti.f32, shape=max_segments)
-        
         # Modifiers as Taichi fields
         self.separation_modifier = ti.field(dtype=ti.f32, shape=())
         self.alignment_modifier = ti.field(dtype=ti.f32, shape=())
         self.cohesion_modifier = ti.field(dtype=ti.f32, shape=())
         self.target_weight = ti.field(dtype=ti.f32, shape=())
-        
-        self.separation_modifier[None] = 5.0
-        self.alignment_modifier[None] = 0.1
-        self.cohesion_modifier[None] = 0.1
-        self.target_weight[None] = 0.5
         
         self.center_x = ti.field(dtype=ti.f32, shape=())
         self.center_y = ti.field(dtype=ti.f32, shape=())
@@ -67,6 +55,11 @@ class DroneSwarm:
 
     @ti.kernel
     def _initialize(self):
+        self.separation_modifier[None] = 5.0
+        self.alignment_modifier[None] = 0.1
+        self.cohesion_modifier[None] = 0.1
+        self.target_weight[None] = 0.5
+        
         for i in range(self.N):
             if self.team == 0:
                 self.pos[i] = ti.Vector([
@@ -137,15 +130,11 @@ class DroneSwarm:
                     gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
                     
                     cell_count = grid_count[gx, gy, gz]
-                    # We assume max_cell_capacity is consistent or passed, but here we use the bucket size
-                    # Since we don't have max_cell_capacity as arg, we rely on bucket shape or assume it's large enough
-                    # Actually, we should probably pass max_cell_capacity or use grid_buckets.shape[3]
                     limit = ti.min(cell_count, grid_buckets.shape[3])
                     
                     for k in range(limit):
                         global_idx = grid_buckets[gx, gy, gz, k]
                         
-                        # Check if friend (same team)
                         is_friend = 0
                         if self.team == 0:
                             if global_idx < self.N: is_friend = 1
@@ -487,34 +476,7 @@ class DroneSwarm:
             self.center_x[None] = 0.0
             self.center_y[None] = 0.0
             self.center_z[None] = 0.0
-    
-    def get_swarm_center(self):
-        self._compute_swarm_center()
-        return [self.center_x[None], self.center_y[None], self.center_z[None]]
-    
-    @ti.kernel
-    def get_health_ratio(self) -> float:
-        total_health = 0.0
-        count = 0
-        
-        for i in range(self.N):
-            if self.active[i] == 1:
-                total_health += self.health[i]
-                count += 1
-        
-        return total_health / (ti.cast(count, ti.f32) * self.max_health)
-                    
-    def get_range_circles(self) -> MatrixField:
-        return self.range_circles
-
-    def get_pos_field(self) -> MatrixField:
-        return self.pos
-    
-    def get_projectile_pos_field(self) -> MatrixField:
-        return self.projectile_pos
-    
-    def get_projectile_active_field(self) -> Field:
-        return self.projectile_active    
+            
     @ti.kernel
     def batched_combat_update(self, dt: ti.f32, 
                               enemy_pos: ti.template(), 
@@ -647,3 +609,19 @@ class DroneSwarm:
                                             self.projectile_free_list[free_idx] = i
                                             hit_detected = 1
                                             break
+    
+    def get_swarm_center(self):
+        self._compute_swarm_center()
+        return [self.center_x[None], self.center_y[None], self.center_z[None]]
+                    
+    def get_range_circles(self) -> MatrixField:
+        return self.range_circles
+
+    def get_pos_field(self) -> MatrixField:
+        return self.pos
+    
+    def get_projectile_pos_field(self) -> MatrixField:
+        return self.projectile_pos
+    
+    def get_projectile_active_field(self) -> Field:
+        return self.projectile_active    
