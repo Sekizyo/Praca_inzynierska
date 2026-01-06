@@ -53,11 +53,11 @@ class GUI():
         
     def _handle_input(self) -> None:
         self.window.get_event()
-        if self.window.is_pressed("q"):
+        if self.window.is_pressed("z"):
             self.swarms.get_player_swarm().update_mode(DroneModes.ATTACK)
-        elif self.window.is_pressed("e"):
+        elif self.window.is_pressed("x"):
             self.swarms.get_player_swarm().update_mode(DroneModes.SPREAD)
-        elif self.window.is_pressed("r"):
+        elif self.window.is_pressed("c"):
             self.swarms.get_player_swarm().update_mode(DroneModes.PATROL)
 
         if self.window.is_pressed(LMB):
