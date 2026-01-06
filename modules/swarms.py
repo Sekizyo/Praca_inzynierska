@@ -182,13 +182,6 @@ class Swarms():
             if count > 0:
                 self.scene.lines(self.grid_lines, indices=None, vertex_count=count, color=GRID_COLOR, width=1.0)
 
-        if gui_state.SHOW_SHOOT_RANGE:
-            self.player_swarm.compute_range_circles()
-            self.enemy_swarm.compute_range_circles()
-        
-            self.scene.lines(self.player_swarm.get_range_circles(), color=PLAYER_COLOR, width=2.0)
-            self.scene.lines(self.enemy_swarm.get_range_circles(), color=ENEMY_COLOR, width=2.0)
-            
         self.scene.particles(self.player_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
         self.scene.particles(self.enemy_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
         

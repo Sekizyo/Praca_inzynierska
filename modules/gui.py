@@ -72,13 +72,14 @@ class GUI():
             self.map.draw_boundary()
             
     def _update_gui(self) -> None:
+        self._calc_voronoi()
+        
         with self.gui.sub_window("Controls", 0.01, 0.01, 0.25, 0.4):
             if self.gui.button("Pause" if not self.GuiState.PAUSED else "Resume"):
                 self.GuiState.PAUSED = not self.GuiState.PAUSED
 
             self.GuiState.SHOW_VORONOI = self.gui.checkbox("Show Voronoi", self.GuiState.SHOW_VORONOI)
             self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
-            self.GuiState.SHOW_SHOOT_RANGE = self.gui.checkbox("Show Shooting Range", self.GuiState.SHOW_SHOOT_RANGE)
             self.GuiState.SHOW_GRID = self.gui.checkbox("Show Grid", self.GuiState.SHOW_GRID)
             
             player_swarm = self.swarms.get_player_swarm()
@@ -122,11 +123,11 @@ class GUI():
         self._update_camera()
         self._update_bourndary()
         self._handle_input()
+        self._update_gui()
         
         if not self.GuiState.PAUSED:
             self.swarms.update_logic(self.dt, self.player_territory)
         self.swarms.update_draw(self.GuiState)
-        self._update_gui()
-        self._calc_voronoi()
+            
         if self.GuiState.SHOW_VORONOI:
             self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())

@@ -14,8 +14,7 @@ class EnemyAI:
         
         self.engage_distance = 300.0
         
-        # Define waypoints around the middle of the map (0,0)
-        patrol_radius = map_size * 0.25
+        patrol_radius = map_size * 0.5
         patrol_height = map_size * 0.5
         
         self.patrol_waypoints = [
@@ -53,9 +52,9 @@ class EnemyAI:
         agression: float = round(player_territory / 100, 2)
         if distance_to_player > self.engage_distance:
             new_state = DroneModes.PATROL
-        elif agression < 0.5:
+        elif agression < 0.6:
             new_state = DroneModes.SPREAD
-        elif distance_to_player < self.engage_distance or agression >= 0.5:
+        elif distance_to_player < self.engage_distance or agression >= 0.6:
             new_state = DroneModes.ATTACK
         
         if self.state != new_state:
@@ -75,7 +74,6 @@ class EnemyAI:
         current_target = self.patrol_waypoints[self.current_waypoint]
         self.target_field[0] = current_target
         
-        # Check if reached waypoint
         swarm_center = self.swarm.get_swarm_center()
         dist = math.sqrt(
             (swarm_center[0] - current_target[0])**2 +
