@@ -34,7 +34,7 @@ class GUI():
         self.map = Map(self.scene, self.MAP_SIZE)
         
         yield "Initializing Voronoi..."
-        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=100)
+        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=50)
 
         yield "Initializing Camera..."
         self._init_camera()
@@ -69,7 +69,7 @@ class GUI():
     def _update_gui(self) -> None:
         self._calc_voronoi()
         
-        with self.gui.sub_window("Controls", 0.01, 0.01, 0.25, 0.4):
+        with self.gui.sub_window("Controls", 0.01, 0.01, 0.15, 0.3):
             if self.gui.button("Pause" if not self.GuiState.PAUSED else "Resume"):
                 self.GuiState.PAUSED = not self.GuiState.PAUSED
 
@@ -120,7 +120,9 @@ class GUI():
         self._update_gui()
         
         if not self.GuiState.PAUSED:
+            self._calc_voronoi()
             self.swarms.update_logic(self.dt, self.player_territory)
+            
         self.swarms.update_draw(self.GuiState)
         
         if self.GuiState.SHOW_BOUNDARY:

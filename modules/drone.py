@@ -106,16 +106,25 @@ class DroneSwarm:
         return count
     
     @ti.func
-    def separation(self, i: ti.i32, 
+    def calculate_flocking(self, i: ti.i32, 
                    grid_count: ti.template(), 
                    grid_buckets: ti.template(), 
                    grid_cell_size: ti.f32, 
                    grid_shape: ti.types.vector(3, ti.i32), 
                    grid_padding: ti.i32, 
                    grid_offset: ti.types.vector(3, ti.f32)) -> ti.types.vector(3, ti.f32):
-        steering = ti.Vector([0.0, 0.0, 0.0])
-        count = 0
-        perception_sq = (self.perception_radius * 0.6) ** 2
+        
+        steer_sep = ti.Vector([0.0, 0.0, 0.0])
+        steer_ali = ti.Vector([0.0, 0.0, 0.0])
+        steer_coh = ti.Vector([0.0, 0.0, 0.0])
+        
+        count_sep = 0
+        count_ali = 0
+        count_coh = 0
+        
+        rad_sep_sq = (self.perception_radius * 0.6) ** 2
+        rad_ali_sq = self.perception_radius ** 2
+        rad_coh_sq = self.perception_radius ** 2
         
         pos_i = self.pos[i] + grid_offset
         base_x = int(pos_i.x / grid_cell_size) + grid_padding
@@ -135,6 +144,7 @@ class DroneSwarm:
                     for k in range(limit):
                         global_idx = grid_buckets[gx, gy, gz, k]
                         
+                        # Check if friend
                         is_friend = 0
                         if self.team == 0:
                             if global_idx < self.N: is_friend = 1
@@ -146,135 +156,57 @@ class DroneSwarm:
                             if i != j:
                                 diff = self.pos[i] - self.pos[j]
                                 dist_sq = diff.norm_sqr()
-                                if dist_sq < perception_sq and dist_sq > 1e-6:
+                                
+                                # Separation
+                                if dist_sq < rad_sep_sq and dist_sq > 1e-6:
                                     inv_dist = ti.rsqrt(dist_sq)
-                                    steering += diff * inv_dist * inv_dist
-                                    count += 1
-        
-        if count > 0:
-            steering /= ti.cast(count, ti.f32)
-            steering_norm = steering.norm()
-            if steering_norm > 1e-6:
-                desired_vel = steering * (self.max_speed / steering_norm)
-                steering = desired_vel - self.vel[i]
-                steering_norm = steering.norm()
-                if steering_norm > self.max_force:
-                    steering *= (self.max_force / steering_norm)
-        return steering
+                                    steer_sep += diff * inv_dist * inv_dist
+                                    count_sep += 1
+                                
+                                # Alignment & Cohesion share same radius usually
+                                if dist_sq < rad_ali_sq:
+                                    steer_ali += self.vel[j]
+                                    count_ali += 1
+                                    
+                                    steer_coh += self.pos[j]
+                                    count_coh += 1
 
-    @ti.func
-    def alignment(self, i: ti.i32, 
-                  grid_count: ti.template(), 
-                  grid_buckets: ti.template(), 
-                  grid_cell_size: ti.f32, 
-                  grid_shape: ti.types.vector(3, ti.i32), 
-                  grid_padding: ti.i32, 
-                  grid_offset: ti.types.vector(3, ti.f32)) -> ti.types.vector(3, ti.f32):
-        steering = ti.Vector([0.0, 0.0, 0.0])
-        count = 0
-        perception_sq = self.perception_radius ** 2
+        # Post-process Separation
+        if count_sep > 0:
+            steer_sep /= ti.cast(count_sep, ti.f32)
+            sep_norm = steer_sep.norm()
+            if sep_norm > 1e-6:
+                steer_sep = steer_sep * (self.max_speed / sep_norm) - self.vel[i]
+                sep_norm = steer_sep.norm()
+                if sep_norm > self.max_force:
+                    steer_sep *= (self.max_force / sep_norm)
         
-        pos_i = self.pos[i] + grid_offset
-        base_x = int(pos_i.x / grid_cell_size) + grid_padding
-        base_y = int(pos_i.y / grid_cell_size) + grid_padding
-        base_z = int(pos_i.z / grid_cell_size) + grid_padding
-
-        for dx in ti.static(range(-1, 2)):
-            for dy in ti.static(range(-1, 2)):
-                for dz in ti.static(range(-1, 2)):
-                    gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
-                    gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
-                    gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
-                    
-                    cell_count = grid_count[gx, gy, gz]
-                    limit = ti.min(cell_count, grid_buckets.shape[3])
-                    
-                    for k in range(limit):
-                        global_idx = grid_buckets[gx, gy, gz, k]
-                        
-                        # Check if friend
-                        is_friend = 0
-                        if self.team == 0:
-                            if global_idx < self.N: is_friend = 1
-                        else:
-                            if global_idx >= self.N: is_friend = 1
-                            
-                        if is_friend:
-                            j = global_idx % self.N
-                            if i != j:
-                                dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
-                                if dist_sq < perception_sq:
-                                    steering += self.vel[j]
-                                    count += 1
+        # Post-process Alignment
+        if count_ali > 0:
+            steer_ali /= ti.cast(count_ali, ti.f32)
+            ali_norm = steer_ali.norm()
+            if ali_norm > 1e-6:
+                steer_ali = steer_ali * (self.max_speed / ali_norm) - self.vel[i]
+                ali_norm = steer_ali.norm()
+                if ali_norm > self.max_force:
+                    steer_ali *= (self.max_force / ali_norm)
         
-        if count > 0:
-            steering /= ti.cast(count, ti.f32)
-            steering_norm = steering.norm()
-            if steering_norm > 1e-6:
-                desired_vel = steering * (self.max_speed / steering_norm)
-                steering = desired_vel - self.vel[i]
-                steering_norm = steering.norm()
-                if steering_norm > self.max_force:
-                    steering *= (self.max_force / steering_norm)
-        return steering
-
-    @ti.func
-    def cohesion(self, i: ti.i32, 
-                 grid_count: ti.template(), 
-                 grid_buckets: ti.template(), 
-                 grid_cell_size: ti.f32, 
-                 grid_shape: ti.types.vector(3, ti.i32), 
-                 grid_padding: ti.i32, 
-                 grid_offset: ti.types.vector(3, ti.f32)) -> ti.types.vector(3, ti.f32):
-        steering = ti.Vector([0.0, 0.0, 0.0])
-        count = 0
-        perception_sq = self.perception_radius ** 2
-        
-        pos_i = self.pos[i] + grid_offset
-        base_x = int(pos_i.x / grid_cell_size) + grid_padding
-        base_y = int(pos_i.y / grid_cell_size) + grid_padding
-        base_z = int(pos_i.z / grid_cell_size) + grid_padding
-
-        for dx in ti.static(range(-1, 2)):
-            for dy in ti.static(range(-1, 2)):
-                for dz in ti.static(range(-1, 2)):
-                    gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
-                    gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
-                    gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
-                    
-                    cell_count = grid_count[gx, gy, gz]
-                    limit = ti.min(cell_count, grid_buckets.shape[3])
-                    
-                    for k in range(limit):
-                        global_idx = grid_buckets[gx, gy, gz, k]
-                        
-                        # Check if friend
-                        is_friend = 0
-                        if self.team == 0:
-                            if global_idx < self.N: is_friend = 1
-                        else:
-                            if global_idx >= self.N: is_friend = 1
-                            
-                        if is_friend:
-                            j = global_idx % self.N
-                            if i != j:
-                                dist_sq = (self.pos[i] - self.pos[j]).norm_sqr()
-                                if dist_sq < perception_sq:
-                                    steering += self.pos[j]
-                                    count += 1
-        
-        if count > 0:
-            steering /= ti.cast(count, ti.f32)
-            desired = steering - self.pos[i]
+        # Post-process Cohesion
+        if count_coh > 0:
+            steer_coh /= ti.cast(count_coh, ti.f32)
+            desired = steer_coh - self.pos[i]
             desired_norm = desired.norm()
             if desired_norm > 1e-6:
                 desired *= (self.max_speed / desired_norm)
-                steering = desired - self.vel[i]
-                steering_norm = steering.norm()
-                if steering_norm > self.max_force:
-                    steering *= (self.max_force / steering_norm)
-        return steering
-    
+                steer_coh = desired - self.vel[i]
+                coh_norm = steer_coh.norm()
+                if coh_norm > self.max_force:
+                    steer_coh *= (self.max_force / coh_norm)
+        
+        return (steer_sep * self.separation_modifier[None] + 
+                steer_ali * self.alignment_modifier[None] + 
+                steer_coh * self.cohesion_modifier[None])
+
     @ti.kernel
     def _update_mode(self, mode: ti.i32):
         if mode == 0:
@@ -312,13 +244,8 @@ class DroneSwarm:
 
             self.acc[i] = ti.Vector([0.0, 0.0, 0.0])
             
-            sep = self.separation(i, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
-            ali = self.alignment(i, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
-            coh = self.cohesion(i, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
-            
-            self.acc[i] += sep * self.separation_modifier[None]
-            self.acc[i] += ali * self.alignment_modifier[None]
-            self.acc[i] += coh * self.cohesion_modifier[None]
+            flocking_force = self.calculate_flocking(i, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
+            self.acc[i] += flocking_force
             
             boundary_force = self.max_force * 5.0
             margin = 10.0
