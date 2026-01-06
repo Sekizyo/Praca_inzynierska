@@ -67,7 +67,6 @@ class GUI():
             self.swarms.set_player_target(x, y)
 
     def _update_gui(self) -> None:
-        self._calc_voronoi()
         
         with self.gui.sub_window("Controls", 0.01, 0.01, 0.15, 0.3):
             if self.gui.button("Pause" if not self.GuiState.PAUSED else "Resume"):

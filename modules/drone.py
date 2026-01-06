@@ -141,18 +141,9 @@ class DroneSwarm:
                     limit = ti.min(cell_count, grid_buckets.shape[3])
                     
                     for k in range(limit):
-                        global_idx = grid_buckets[gx, gy, gz, k]
+                        j = grid_buckets[gx, gy, gz, k]
                         
-                        # Check if friend
-                        is_friend = 0
-                        if self.team == 0:
-                            if global_idx < self.N: is_friend = 1
-                        else:
-                            if global_idx >= self.N: is_friend = 1
-                            
-                        if is_friend:
-                            j = global_idx % self.N
-                            if i != j:
+                        if i != j:
                                 diff = self.pos[i] - self.pos[j]
                                 dist_sq = diff.norm_sqr()
                                 
@@ -364,23 +355,14 @@ class DroneSwarm:
                         limit = ti.min(cell_count, grid_buckets.shape[3])
                         
                         for k in range(limit):
-                            global_idx = grid_buckets[gx, gy, gz, k]
+                            j = grid_buckets[gx, gy, gz, k]
                             
-                            # Check if enemy
-                            is_enemy = 0
-                            if self.team == 0:
-                                if global_idx >= self.N: is_enemy = 1
-                            else:
-                                if global_idx < self.N: is_enemy = 1
-                                
-                            if is_enemy:
-                                j = global_idx % self.N
-                                if enemy_health[j][0] > 0.0:
-                                    diff = self.pos[i] - enemy_pos[j]
-                                    dist_sq = diff.norm_sqr()
-                                    if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
-                                        min_dist_sq = dist_sq
-                                        target_idx = j
+                            if enemy_health[j][0] > 0.0:
+                                diff = self.pos[i] - enemy_pos[j]
+                                dist_sq = diff.norm_sqr()
+                                if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
+                                    min_dist_sq = dist_sq
+                                    target_idx = j
             
             if target_idx >= 0 and self.projectile_free_count[None] > 0:
                 free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
@@ -436,29 +418,20 @@ class DroneSwarm:
                             limit = ti.min(cell_count, grid_buckets.shape[3])
                             
                             for k in range(limit):
-                                global_idx = grid_buckets[gx, gy, gz, k]
+                                j = grid_buckets[gx, gy, gz, k]
                                 
-                                # Check if enemy
-                                is_enemy = 0
-                                if self.team == 0:
-                                    if global_idx >= self.N: is_enemy = 1
-                                else:
-                                    if global_idx < self.N: is_enemy = 1
-                                    
-                                if is_enemy:
-                                    j = global_idx % self.N
-                                    if enemy_health[j][0] > 0.0:
-                                        diff = self.projectile_pos[i] - enemy_pos[j]
-                                        dist_sq = diff.norm_sqr()
-                                        if dist_sq < hit_radius_sq:
-                                            self.projectile_active[i] = 0
-                                            self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
-                                            # Using atomic_add on the specific component
-                                            ti.atomic_add(enemy_health[j][0], -self.projectile_damage)
-                                            free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
-                                            self.projectile_free_list[free_idx] = i
-                                            hit_detected = 1
-                                            break
+                                if enemy_health[j][0] > 0.0:
+                                    diff = self.projectile_pos[i] - enemy_pos[j]
+                                    dist_sq = diff.norm_sqr()
+                                    if dist_sq < hit_radius_sq:
+                                        self.projectile_active[i] = 0
+                                        self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                                        # Using atomic_add on the specific component
+                                        ti.atomic_add(enemy_health[j][0], -self.projectile_damage)
+                                        free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
+                                        self.projectile_free_list[free_idx] = i
+                                        hit_detected = 1
+                                        break
     
     def get_swarm_center(self):
         self._compute_swarm_center()

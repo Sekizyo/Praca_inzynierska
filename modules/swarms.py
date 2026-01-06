@@ -30,8 +30,10 @@ class Swarms():
         self.grid_shape = ti.Vector([grid_dim, grid_dim, grid_dim])
         self.grid_offset = ti.Vector([self.map_size, self.map_size, 0.0])
         
-        self.grid_count = ti.field(dtype=ti.i32, shape=self.grid_shape)
-        self.grid_buckets = ti.field(dtype=ti.i32, shape=(self.grid_shape[0], self.grid_shape[1], self.grid_shape[2], self.max_cell_capacity))
+        self.grid_count_p = ti.field(dtype=ti.i32, shape=self.grid_shape)
+        self.grid_buckets_p = ti.field(dtype=ti.i32, shape=(self.grid_shape[0], self.grid_shape[1], self.grid_shape[2], self.max_cell_capacity))
+        self.grid_count_e = ti.field(dtype=ti.i32, shape=self.grid_shape)
+        self.grid_buckets_e = ti.field(dtype=ti.i32, shape=(self.grid_shape[0], self.grid_shape[1], self.grid_shape[2], self.max_cell_capacity))
         
         self.max_grid_lines = 3000
         self.grid_lines = ti.Vector.field(3, dtype=ti.f32, shape=self.max_grid_lines * 2)
@@ -39,8 +41,9 @@ class Swarms():
 
     @ti.kernel
     def update_shared_grid(self):
-        for I in ti.grouped(self.grid_count):
-            self.grid_count[I] = 0
+        for I in ti.grouped(self.grid_count_p):
+            self.grid_count_p[I] = 0
+            self.grid_count_e[I] = 0
             
         for i in range(self.player_swarm.N):
             if self.player_swarm.active[i][0] != 0:
@@ -53,9 +56,9 @@ class Swarms():
                 gy = ti.math.clamp(gy, 0, self.grid_shape[1] - 1)
                 gz = ti.math.clamp(gz, 0, self.grid_shape[2] - 1)
                 
-                idx = ti.atomic_add(self.grid_count[gx, gy, gz], 1)
+                idx = ti.atomic_add(self.grid_count_p[gx, gy, gz], 1)
                 if idx < self.max_cell_capacity:
-                    self.grid_buckets[gx, gy, gz, idx] = i
+                    self.grid_buckets_p[gx, gy, gz, idx] = i
                     
         for i in range(self.enemy_swarm.N):
             if self.enemy_swarm.active[i][0] != 0:
@@ -68,16 +71,16 @@ class Swarms():
                 gy = ti.math.clamp(gy, 0, self.grid_shape[1] - 1)
                 gz = ti.math.clamp(gz, 0, self.grid_shape[2] - 1)
                 
-                idx = ti.atomic_add(self.grid_count[gx, gy, gz], 1)
+                idx = ti.atomic_add(self.grid_count_e[gx, gy, gz], 1)
                 if idx < self.max_cell_capacity:
-                    self.grid_buckets[gx, gy, gz, idx] = i + self.player_swarm.N
+                    self.grid_buckets_e[gx, gy, gz, idx] = i
 
     @ti.kernel
     def update_grid_vis(self):
         self.grid_line_count[None] = 0
         
-        for I in ti.grouped(self.grid_count):
-            if self.grid_count[I] > 0:
+        for I in ti.grouped(self.grid_count_p):
+            if self.grid_count_p[I] > 0 or self.grid_count_e[I] > 0:
                 base_x = (I[0] - self.grid_padding) * self.grid_cell_size - self.grid_offset.x
                 base_y = (I[1] - self.grid_padding) * self.grid_cell_size - self.grid_offset.y
                 base_z = (I[2] - self.grid_padding) * self.grid_cell_size - self.grid_offset.z
@@ -123,8 +126,8 @@ class Swarms():
         self.player_swarm.update(
             dt, 
             self.player_target_field,
-            self.grid_count,
-            self.grid_buckets,
+            self.grid_count_p,
+            self.grid_buckets_p,
             self.grid_cell_size,
             self.grid_shape,
             self.grid_padding,
@@ -133,8 +136,8 @@ class Swarms():
         self.enemy_swarm.update(
             dt, 
             self.enemy_ai.get_target_field(),
-            self.grid_count,
-            self.grid_buckets,
+            self.grid_count_e,
+            self.grid_buckets_e,
             self.grid_cell_size,
             self.grid_shape,
             self.grid_padding,
@@ -146,8 +149,8 @@ class Swarms():
             self.enemy_swarm.get_pos_field(), 
             self.enemy_swarm.N, 
             self.enemy_swarm.health,
-            self.grid_count,
-            self.grid_buckets,
+            self.grid_count_e,
+            self.grid_buckets_e,
             self.grid_offset,
             self.grid_shape,
             self.grid_cell_size,
@@ -159,8 +162,8 @@ class Swarms():
             self.player_swarm.get_pos_field(), 
             self.player_swarm.N, 
             self.player_swarm.health,
-            self.grid_count,
-            self.grid_buckets,
+            self.grid_count_p,
+            self.grid_buckets_p,
             self.grid_offset,
             self.grid_shape,
             self.grid_cell_size,
