@@ -8,6 +8,7 @@ from modules.constants import DroneModes
 from modules.voronoi import VoronoiDiagram
 from modules.gui_utils import GuiState
 from modules.utils import run_every_n_calls
+import time
 
 class GUI():
     MAP_SIZE: float = 400.0
@@ -18,14 +19,11 @@ class GUI():
         self.scene = scene
         self.GuiState: GuiState = GuiState()
         
-        self.dt: float = 0.15
+        self.dt: float = 0.016
+        self.last_frame_time: float = time.perf_counter()
         self.drone_count: int = 2000
-        self.player_territory: float = 0.0
+        self.player_territory: float = 50.0
         
-        self.swarms = None
-        self.map = None
-        self.voronoi = None
-
     def load(self):
         yield "Initializing Swarms..."
         self.swarms: Swarms = Swarms(self.scene, self.drone_count, self.MAP_SIZE)
@@ -38,6 +36,11 @@ class GUI():
 
         yield "Initializing Camera..."
         self._init_camera()
+        
+        yield "Finalizing..."
+        self.player_swarm = self.swarms.get_player_swarm()
+        self.enemy_swarm = self.swarms.get_enemy_swarm()
+        self.enemy_ai = self.swarms.get_enemy_ai()
         
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()
@@ -54,11 +57,13 @@ class GUI():
     def _handle_input(self) -> None:
         self.window.get_event()
         if self.window.is_pressed("z"):
-            self.swarms.get_player_swarm().update_mode(DroneModes.ATTACK)
+            self.player_swarm.update_mode(DroneModes.ATTACK)
         elif self.window.is_pressed("x"):
-            self.swarms.get_player_swarm().update_mode(DroneModes.SPREAD)
+            self.player_swarm.update_mode(DroneModes.SPREAD)
         elif self.window.is_pressed("c"):
-            self.swarms.get_player_swarm().update_mode(DroneModes.PATROL)
+            self.player_swarm.update_mode(DroneModes.PATROL)
+        else:
+            pass
 
         if self.window.is_pressed(LMB):
             mouse_pos = self.window.get_cursor_pos()
@@ -94,26 +99,27 @@ class GUI():
             
             self.gui.text(f"Player drones: {player_count}")
             self.gui.text(f"Enemy drones: {enemy_count}")
-            self.gui.text(f"Player mode: {player_swarm.get_mode()}")
-            self.gui.text(f"Enemy AI state: {enemy_ai.get_state()}")
+            self.gui.text(f"Player mode: {self.player_swarm.get_mode()}")
+            self.gui.text(f"Enemy AI state: {self.enemy_ai.get_state()}")
             self.gui.text(f"Territory: {self.player_territory:.1f}%")
             self.gui.text(f"Win percentage: {domination*100:.1f}%")
             
     @run_every_n_calls(20)
     def _calc_voronoi(self) -> None:
-        player_swarm = self.swarms.get_player_swarm()
-        enemy_swarm = self.swarms.get_enemy_swarm()
-        
         self.player_territory = self.voronoi.update(
-            player_swarm.get_pos_field(), 
-            player_swarm.N,
-            player_swarm.health,
-            enemy_swarm.get_pos_field(),
-            enemy_swarm.N,
-            enemy_swarm.health
+            self.player_swarm.get_pos_field(), 
+            self.player_swarm.N,
+            self.player_swarm.health,
+            self.enemy_swarm.get_pos_field(),
+            self.enemy_swarm.N,
+            self.enemy_swarm.health
         )
         
     def update(self) -> None:
+        current_time = time.perf_counter()
+        self.dt = min(current_time - self.last_frame_time, 0.05)
+        self.last_frame_time = current_time
+        
         self._update_camera()
         self._handle_input()
         self._update_gui()
@@ -121,7 +127,6 @@ class GUI():
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
             self.swarms.update_logic(self.dt, self.player_territory)
-            
         self.swarms.update_draw(self.GuiState)
         
         if self.GuiState.SHOW_BOUNDARY:

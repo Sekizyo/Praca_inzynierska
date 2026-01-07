@@ -8,8 +8,9 @@ class Window():
     MAP_SIZE: float = 250.0
     
     def __init__(self, title="Drone Voronoi Sim", size=(1920, 1000)) -> None:
-        ti.init(offline_cache=True)
-        self.window: TWindow = TWindow(title, size, pos=(0,30),show_window=True)
+        ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, device_memory_fraction=0.9, 
+                kernel_profiler=False, advanced_optimization=True, fast_math=True)
+        self.window: TWindow = TWindow(title, size, pos=(0,30), show_window=True, vsync=False)
         self.canvas: Canvas = self.window.get_canvas()
         self.scene = self.window.get_scene()
         self.gui = GUI(self.window.get_gui(), self.window, self.scene)

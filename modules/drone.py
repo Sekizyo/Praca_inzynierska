@@ -6,17 +6,17 @@ from modules.constants import DroneModes
 
 @data_oriented
 class DroneSwarm:
-    max_speed: float = 15.0
-    max_force: float = 0.5
+    max_speed: float = 2000.0
+    max_force: float = 4.0
     perception_radius: float = 40.0
     mode: DroneModes = DroneModes.SPREAD
     projectile_speed: float = 50.0
     shoot_range: float = 50.0
-    shoot_cooldown: float = 3.0
+    shoot_cooldown: float = 2.0
     hit_radius: float = 2.0
     max_health: float = 100.0
     projectile_damage: float = 25.0
-    projectile_max_lifetime: float = 2.0
+    projectile_max_lifetime: float = 1.0
     projectile_radius: float = 0.5
 
     def __init__(self, count: int, boundary_size: float, team: int = 0) -> None:
@@ -32,7 +32,7 @@ class DroneSwarm:
         self.health: MatrixField = Vector.field(1, dtype=ti.f32, shape=self.N)
         self.cooldown: MatrixField = Vector.field(1, dtype=ti.f32, shape=self.N)
         
-        self.max_projectiles: int = count * 10
+        self.max_projectiles: int = count
         self.projectile_pos: MatrixField = Vector.field(3, dtype=f32, shape=self.max_projectiles)
         self.projectile_vel: MatrixField = Vector.field(3, dtype=f32, shape=self.max_projectiles)
         self.projectile_active: Field = ti.field(dtype=ti.i32, shape=self.max_projectiles)
@@ -50,6 +50,7 @@ class DroneSwarm:
         self.center_x = ti.field(dtype=ti.f32, shape=())
         self.center_y = ti.field(dtype=ti.f32, shape=())
         self.center_z = ti.field(dtype=ti.f32, shape=())
+        self.alive_count_cache = ti.field(dtype=ti.i32, shape=())
         
         self._initialize()
 
@@ -59,6 +60,7 @@ class DroneSwarm:
         self.alignment_modifier[None] = 0.1
         self.cohesion_modifier[None] = 0.1
         self.target_weight[None] = 0.5
+        
         
         for i in range(self.N):
             if self.team == 0:
@@ -83,6 +85,7 @@ class DroneSwarm:
             self.active[i] = 1
             self.health[i] = self.max_health
             self.cooldown[i] = 0.0
+            
         
         for i in range(self.max_projectiles):
             self.projectile_active[i] = 0
@@ -98,12 +101,35 @@ class DroneSwarm:
         return (self.separation_modifier[None], self.alignment_modifier[None], self.cohesion_modifier[None], self.target_weight[None])
     
     @ti.kernel
-    def get_alive_count(self) -> ti.i32:
+    def update_statistics(self):
+        """Compute all statistics in a single kernel to avoid multiple CPU-GPU syncs"""
+        total_x = 0.0
+        total_y = 0.0
+        total_z = 0.0
         count = 0
+        
+        
         for i in range(self.N):
             if self.active[i][0] == 1:
+                total_x += self.pos[i][0]
+                total_y += self.pos[i][1]
+                total_z += self.pos[i][2]
                 count += 1
-        return count
+        
+        self.alive_count_cache[None] = count
+        
+        if count > 0:
+            inv_count = 1.0 / ti.cast(count, ti.f32)
+            self.center_x[None] = total_x * inv_count
+            self.center_y[None] = total_y * inv_count
+            self.center_z[None] = total_z * inv_count
+        else:
+            self.center_x[None] = 0.0
+            self.center_y[None] = 0.0
+            self.center_z[None] = 0.0
+    
+    def get_alive_count(self) -> int:
+        return self.alive_count_cache[None]
     
     @ti.func
     def calculate_flocking(self, i: ti.i32, 
@@ -129,7 +155,8 @@ class DroneSwarm:
         base_x = int(pos_i.x / grid_cell_size) + grid_padding
         base_y = int(pos_i.y / grid_cell_size) + grid_padding
         base_z = int(pos_i.z / grid_cell_size) + grid_padding
-
+        
+        
         for dx in ti.static(range(-1, 2)):
             for dy in ti.static(range(-1, 2)):
                 for dz in ti.static(range(-1, 2)):
@@ -228,6 +255,8 @@ class DroneSwarm:
                grid_shape: ti.types.vector(3, ti.i32), 
                grid_padding: ti.i32, 
                grid_offset: ti.types.vector(3, ti.f32)):
+        
+        
         for i in range(self.N):
             if self.active[i][0] == 0:
                 continue
@@ -293,30 +322,6 @@ class DroneSwarm:
                 self.pos[i] = ti.Vector([-10000.0, 0.0, 0.0])
 
     
-    @ti.kernel
-    def _compute_swarm_center(self):
-        total_x = 0.0
-        total_y = 0.0
-        total_z = 0.0
-        count = 0
-        
-        for i in range(self.N):
-            if self.active[i][0] == 1:
-                total_x += self.pos[i][0]
-                total_y += self.pos[i][1]
-                total_z += self.pos[i][2]
-                count += 1
-        
-        if count > 0:
-            inv_count = 1.0 / ti.cast(count, ti.f32)
-            self.center_x[None] = total_x * inv_count
-            self.center_y[None] = total_y * inv_count
-            self.center_z[None] = total_z * inv_count
-        else:
-            self.center_x[None] = 0.0
-            self.center_y[None] = 0.0
-            self.center_z[None] = 0.0
-            
     @ti.kernel
     def batched_combat_update(self, dt: ti.f32, 
                               enemy_pos: ti.template(), 
@@ -434,7 +439,7 @@ class DroneSwarm:
                                         break
     
     def get_swarm_center(self):
-        self._compute_swarm_center()
+        """Return cached swarm center (no kernel launch)"""
         return [self.center_x[None], self.center_y[None], self.center_z[None]]
                     
     def get_pos_field(self) -> MatrixField:
