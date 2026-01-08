@@ -156,6 +156,8 @@ class DroneSwarm:
     
     @ti.func
     def calculate_flocking(self, i: ti.i32, 
+                   pos_self: ti.types.vector(3, ti.f32),
+                   vel_self: ti.types.vector(3, ti.f32),
                    grid_count: ti.template(), 
                    grid_buckets: ti.template(), 
                    grid_cell_size: ti.f32, 
@@ -174,49 +176,47 @@ class DroneSwarm:
         rad_sep_sq = (self.perception_radius * 0.6) ** 2
         rad_ali_sq = self.perception_radius ** 2
         
-        pos_i = self.pos[i] + grid_offset
+        pos_i = pos_self + grid_offset
         base_x = int(pos_i.x / grid_cell_size) + grid_padding
         base_y = int(pos_i.y / grid_cell_size) + grid_padding
         base_z = int(pos_i.z / grid_cell_size) + grid_padding
         
         
-        for dx in ti.static(range(-1, 2)):
-            for dy in ti.static(range(-1, 2)):
-                for dz in ti.static(range(-1, 2)):
-                    gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
-                    gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
-                    gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
-                    
-                    cell_count = grid_count[gx, gy, gz]
-                    limit = ti.min(cell_count, grid_buckets.shape[3])
-                    
-                    for k in range(limit):
-                        j = grid_buckets[gx, gy, gz, k]
+        for dx, dy, dz in ti.static(ti.ndrange((-1, 2), (-1, 2), (-1, 2))):
+            gx = ti.math.clamp(base_x + dx, 0, grid_shape[0] - 1)
+            gy = ti.math.clamp(base_y + dy, 0, grid_shape[1] - 1)
+            gz = ti.math.clamp(base_z + dz, 0, grid_shape[2] - 1)
+            
+            cell_count = grid_count[gx, gy, gz]
+            limit = ti.min(cell_count, grid_buckets.shape[3])
+            
+            for k in range(limit):
+                j = grid_buckets[gx, gy, gz, k]
+                
+                if i != j:
+                        diff = pos_self - self.pos[j]
+                        dist_sq = diff.norm_sqr()
                         
-                        if i != j:
-                                diff = self.pos[i] - self.pos[j]
-                                dist_sq = diff.norm_sqr()
-                                
-                                # Separation
-                                if dist_sq < rad_sep_sq and dist_sq > 1e-6:
-                                    inv_dist = ti.rsqrt(dist_sq)
-                                    steer_sep += diff * inv_dist * inv_dist
-                                    count_sep += 1
-                                
-                                # Alignment & Cohesion share same radius usually
-                                if dist_sq < rad_ali_sq:
-                                    steer_ali += self.vel[j]
-                                    count_ali += 1
-                                    
-                                    steer_coh += self.pos[j]
-                                    count_coh += 1
+                        # Separation
+                        if dist_sq < rad_sep_sq and dist_sq > 1e-6:
+                            inv_dist = ti.rsqrt(dist_sq)
+                            steer_sep += diff * inv_dist * inv_dist
+                            count_sep += 1
+                        
+                        # Alignment & Cohesion share same radius usually
+                        if dist_sq < rad_ali_sq:
+                            steer_ali += self.vel[j]
+                            count_ali += 1
+                            
+                            steer_coh += self.pos[j]
+                            count_coh += 1
 
         # Post-process Separation
         if count_sep > 0:
             steer_sep /= ti.cast(count_sep, ti.f32)
             sep_norm = steer_sep.norm()
             if sep_norm > 1e-6:
-                steer_sep = steer_sep * (self.max_speed / sep_norm) - self.vel[i]
+                steer_sep = steer_sep * (self.max_speed / sep_norm) - vel_self
                 sep_norm = steer_sep.norm()
                 if sep_norm > self.max_force:
                     steer_sep *= (self.max_force / sep_norm)
@@ -226,7 +226,7 @@ class DroneSwarm:
             steer_ali /= ti.cast(count_ali, ti.f32)
             ali_norm = steer_ali.norm()
             if ali_norm > 1e-6:
-                steer_ali = steer_ali * (self.max_speed / ali_norm) - self.vel[i]
+                steer_ali = steer_ali * (self.max_speed / ali_norm) - vel_self
                 ali_norm = steer_ali.norm()
                 if ali_norm > self.max_force:
                     steer_ali *= (self.max_force / ali_norm)
@@ -234,11 +234,11 @@ class DroneSwarm:
         # Post-process Cohesion
         if count_coh > 0:
             steer_coh /= ti.cast(count_coh, ti.f32)
-            desired = steer_coh - self.pos[i]
+            desired = steer_coh - pos_self
             desired_norm = desired.norm()
             if desired_norm > 1e-6:
                 desired *= (self.max_speed / desired_norm)
-                steer_coh = desired - self.vel[i]
+                steer_coh = desired - vel_self
                 coh_norm = steer_coh.norm()
                 if coh_norm > self.max_force:
                     steer_coh *= (self.max_force / coh_norm)
@@ -280,15 +280,19 @@ class DroneSwarm:
                grid_padding: ti.i32, 
                grid_offset: ti.types.vector(3, ti.f32)):
         
+        target_weight_val = self.target_weight[None]
         
         for i in range(self.N):
             if self.active[i][0] == 0:
                 continue
 
-            self.acc[i] = ti.Vector([0.0, 0.0, 0.0])
+            # Cache position and velocity to avoid repeated global memory access
+            pos_val = self.pos[i]
+            vel_val = self.vel[i]
+            acc_val = ti.Vector([0.0, 0.0, 0.0])
             
-            flocking_force = self.calculate_flocking(i, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
-            self.acc[i] += flocking_force
+            flocking_force = self.calculate_flocking(i, pos_val, vel_val, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
+            acc_val += flocking_force
             
             boundary_force = self.max_force * 5.0
             margin = 10.0
@@ -296,46 +300,53 @@ class DroneSwarm:
             boundary_min = -self.boundary + margin
             inv_margin = 1.0 / margin
             
-            pos = self.pos[i]
+            if pos_val.x > boundary_max:
+                acc_val.x -= boundary_force * (pos_val.x - boundary_max) * inv_margin
+            elif pos_val.x < boundary_min:
+                acc_val.x += boundary_force * (boundary_min - pos_val.x) * inv_margin
             
-            if pos.x > boundary_max:
-                self.acc[i].x -= boundary_force * (pos.x - boundary_max) * inv_margin
-            elif pos.x < boundary_min:
-                self.acc[i].x += boundary_force * (boundary_min - pos.x) * inv_margin
+            if pos_val.y > boundary_max:
+                acc_val.y -= boundary_force * (pos_val.y - boundary_max) * inv_margin
+            elif pos_val.y < boundary_min:
+                acc_val.y += boundary_force * (boundary_min - pos_val.y) * inv_margin
             
-            if pos.y > boundary_max:
-                self.acc[i].y -= boundary_force * (pos.y - boundary_max) * inv_margin
-            elif pos.y < boundary_min:
-                self.acc[i].y += boundary_force * (boundary_min - pos.y) * inv_margin
+            if pos_val.z > boundary_max:
+                acc_val.z -= boundary_force * (pos_val.z - boundary_max) * inv_margin
+            elif pos_val.z < margin:
+                acc_val.z += boundary_force * (margin - pos_val.z) * inv_margin
             
-            if pos.z > boundary_max:
-                self.acc[i].z -= boundary_force * (pos.z - boundary_max) * inv_margin
-            elif pos.z < margin:
-                self.acc[i].z += boundary_force * (margin - pos.z) * inv_margin
+            # Update Position with Boundary Clamping
+            new_pos_x = ti.math.clamp(pos_val.x, -self.boundary, self.boundary)
+            new_pos_y = ti.math.clamp(pos_val.y, -self.boundary, self.boundary)
+            new_pos_z = ti.math.clamp(pos_val.z, 0.0, self.boundary)
             
-            self.pos[i].x = ti.math.clamp(pos.x, -self.boundary, self.boundary)
-            self.pos[i].y = ti.math.clamp(pos.y, -self.boundary, self.boundary)
-            self.pos[i].z = ti.math.clamp(pos.z, 0.0, self.boundary)
+            # Zero velocity if hitting wall
+            if new_pos_x != pos_val.x:
+                vel_val.x = 0.0
+            if new_pos_y != pos_val.y:
+                vel_val.y = 0.0
+            if new_pos_z != pos_val.z:
+                vel_val.z = 0.0
             
-            if pos.x != self.pos[i].x:
-                self.vel[i].x = 0.0
-            if pos.y != self.pos[i].y:
-                self.vel[i].y = 0.0
-            if pos.z != self.pos[i].z:
-                self.vel[i].z = 0.0
+            pos_val = ti.Vector([new_pos_x, new_pos_y, new_pos_z])
             
-            direction = target_pos[0] - self.pos[i]
+            direction = target_pos[0] - pos_val
             dir_norm = direction.norm()
             if dir_norm > 1e-6:
-                self.acc[i] += direction * (self.target_weight[None] / dir_norm)
+                acc_val += direction * (target_weight_val / dir_norm)
 
-            self.vel[i] += self.acc[i] * dt
+            vel_val += acc_val * dt
             
-            vel_norm = self.vel[i].norm()
+            vel_norm = vel_val.norm()
             if vel_norm > self.max_speed:
-                self.vel[i] *= (self.max_speed / vel_norm)
+                vel_val *= (self.max_speed / vel_norm)
             
-            self.pos[i] += self.vel[i] * dt
+            pos_val += vel_val * dt
+            
+            # Write back to global memory once
+            self.pos[i] = pos_val
+            self.vel[i] = vel_val
+            self.acc[i] = acc_val
             
             if self.cooldown[i][0] > 0.0:
                 self.cooldown[i][0] -= dt

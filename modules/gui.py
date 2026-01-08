@@ -8,6 +8,7 @@ from modules.constants import DroneModes
 from modules.voronoi import VoronoiDiagram
 from modules.gui_utils import GuiState
 from modules.utils import run_every_n_calls
+import taichi as ti
 import time
 
 class GUI():
@@ -21,7 +22,7 @@ class GUI():
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
-        self.drone_count: int = 2000
+        self.drone_count: int = 1000
         self.player_territory: float = 50.0
         
     def load(self):
@@ -37,10 +38,13 @@ class GUI():
         yield "Initializing Camera"
         self._init_camera()
         
-        yield "Finalizing..."
+        yield "Fetching Swarm references"
         self.player_swarm = self.swarms.get_player_swarm()
         self.enemy_swarm = self.swarms.get_enemy_swarm()
         self.enemy_ai = self.swarms.get_enemy_ai()
+        
+        yield "Finalizing"
+        self.update()
         
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()
@@ -79,6 +83,11 @@ class GUI():
             self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
             self.GuiState.SHOW_GRID = self.gui.checkbox("Show Grid", self.GuiState.SHOW_GRID)
             
+            if self.gui.button("Print Profile"):
+                ti.profiler.print_kernel_profiler_info()  # default mode='count'
+            
+            if self.gui.button("Clear Profile"):
+                ti.profiler.clear_kernel_profiler_info()
             
             # Calculate domination score
             player_count = self.player_swarm.get_alive_count()

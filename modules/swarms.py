@@ -38,6 +38,7 @@ class Swarms():
         self.max_grid_lines = 60000
         self.grid_lines = ti.Vector.field(3, dtype=ti.f32, shape=self.max_grid_lines * 2)
         self.grid_line_count = ti.field(dtype=ti.i32, shape=())
+        self.frame_count = 0
 
     @ti.kernel
     def update_shared_grid(self):
@@ -120,11 +121,8 @@ class Swarms():
 
     def _update_logic(self, dt: float, player_territory: float) -> None:
         self.update_shared_grid()
+        self.frame_count += 1
         
-        # Update statistics once per frame (batched kernel)
-        self.player_swarm.update_statistics()
-        self.enemy_swarm.update_statistics()
-
         self.enemy_ai.update(dt, self.player_swarm, player_territory)
         
         self.player_swarm.update(
@@ -178,6 +176,10 @@ class Swarms():
         if gui_state.SHOW_GRID:
             self.update_grid_vis()
             self.scene.lines(self.grid_lines, color=GRID_COLOR, width=1.0)
+            
+        if self.frame_count % 10 == 0:
+            self.player_swarm.update_statistics()
+            self.enemy_swarm.update_statistics()
 
         self.scene.particles(self.player_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
         self.scene.particles(self.enemy_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
