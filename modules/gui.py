@@ -25,16 +25,16 @@ class GUI():
         self.player_territory: float = 50.0
         
     def load(self):
-        yield "Initializing Swarms..."
+        yield "Initializing Swarms"
         self.swarms: Swarms = Swarms(self.scene, self.drone_count, self.MAP_SIZE)
         
-        yield "Initializing Map..."
+        yield "Initializing Map"
         self.map = Map(self.scene, self.MAP_SIZE)
         
-        yield "Initializing Voronoi..."
+        yield "Initializing Voronoi"
         self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=50)
 
-        yield "Initializing Camera..."
+        yield "Initializing Camera"
         self._init_camera()
         
         yield "Finalizing..."
