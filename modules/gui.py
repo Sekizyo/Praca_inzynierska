@@ -19,7 +19,7 @@ class GUI():
         self.scene = scene
         self.GuiState: GuiState = GuiState()
         
-        self.dt: float = 0.016
+        self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
         self.drone_count: int = 2000
         self.player_territory: float = 50.0
@@ -60,8 +60,6 @@ class GUI():
             self.player_swarm.update_mode(DroneModes.ATTACK)
         elif self.window.is_pressed("x"):
             self.player_swarm.update_mode(DroneModes.SPREAD)
-        elif self.window.is_pressed("c"):
-            self.player_swarm.update_mode(DroneModes.PATROL)
         else:
             pass
 
@@ -81,13 +79,10 @@ class GUI():
             self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
             self.GuiState.SHOW_GRID = self.gui.checkbox("Show Grid", self.GuiState.SHOW_GRID)
             
-            player_swarm = self.swarms.get_player_swarm()
-            enemy_swarm = self.swarms.get_enemy_swarm()
-            enemy_ai = self.swarms.get_enemy_ai()
             
             # Calculate domination score
-            player_count = player_swarm.get_alive_count()
-            enemy_count = enemy_swarm.get_alive_count()
+            player_count = self.player_swarm.get_alive_count()
+            enemy_count = self.enemy_swarm.get_alive_count()
             total_drones = player_count + enemy_count
             
             if total_drones > 0:
@@ -106,7 +101,7 @@ class GUI():
             
     @run_every_n_calls(20)
     def _calc_voronoi(self) -> None:
-        self.player_territory = self.voronoi.update(
+        self.voronoi.update(
             self.player_swarm.get_pos_field(), 
             self.player_swarm.N,
             self.player_swarm.health,
@@ -116,9 +111,16 @@ class GUI():
         )
         
     def update(self) -> None:
-        current_time = time.perf_counter()
-        self.dt = min(current_time - self.last_frame_time, 0.05)
-        self.last_frame_time = current_time
+        # Pull statistics from GPU to CPU cache once per frame
+        self.player_swarm.pull_stats()
+        self.enemy_swarm.pull_stats()
+        self.voronoi.pull_stats()
+        
+        self.player_territory = self.voronoi.get_territory_ratio()
+        
+        # current_time = time.perf_counter()
+        # self.dt = min(current_time - self.last_frame_time, 0.05)
+        # self.last_frame_time = current_time
         
         self._update_camera()
         self._handle_input()

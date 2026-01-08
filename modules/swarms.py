@@ -22,7 +22,7 @@ class Swarms():
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
         
-        self.grid_cell_size = 160.0
+        self.grid_cell_size = 40.0
         self.grid_padding = 2
         self.max_cell_capacity = 300
         
@@ -35,7 +35,7 @@ class Swarms():
         self.grid_count_e = ti.field(dtype=ti.i32, shape=self.grid_shape)
         self.grid_buckets_e = ti.field(dtype=ti.i32, shape=(self.grid_shape[0], self.grid_shape[1], self.grid_shape[2], self.max_cell_capacity))
         
-        self.max_grid_lines = 3000
+        self.max_grid_lines = 60000
         self.grid_lines = ti.Vector.field(3, dtype=ti.f32, shape=self.max_grid_lines * 2)
         self.grid_line_count = ti.field(dtype=ti.i32, shape=())
 

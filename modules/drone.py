@@ -6,8 +6,8 @@ from modules.constants import DroneModes
 
 @data_oriented
 class DroneSwarm:
-    max_speed: float = 2000.0
-    max_force: float = 4.0
+    max_speed: float = 20.0
+    max_force: float = 0.5
     perception_radius: float = 40.0
     mode: DroneModes = DroneModes.SPREAD
     projectile_speed: float = 50.0
@@ -51,6 +51,10 @@ class DroneSwarm:
         self.center_y = ti.field(dtype=ti.f32, shape=())
         self.center_z = ti.field(dtype=ti.f32, shape=())
         self.alive_count_cache = ti.field(dtype=ti.i32, shape=())
+        
+        # [Alive Count, Center X, Center Y, Center Z]
+        self.stats = ti.field(dtype=ti.f32, shape=4)
+        self.cached_stats = [0.0, 0.0, 0.0, 0.0]
         
         self._initialize()
 
@@ -117,19 +121,38 @@ class DroneSwarm:
                 count += 1
         
         self.alive_count_cache[None] = count
+        self.stats[0] = ti.cast(count, ti.f32)
         
         if count > 0:
             inv_count = 1.0 / ti.cast(count, ti.f32)
-            self.center_x[None] = total_x * inv_count
-            self.center_y[None] = total_y * inv_count
-            self.center_z[None] = total_z * inv_count
+            cx = total_x * inv_count
+            cy = total_y * inv_count
+            cz = total_z * inv_count
+            
+            self.center_x[None] = cx
+            self.center_y[None] = cy
+            self.center_z[None] = cz
+            
+            self.stats[1] = cx
+            self.stats[2] = cy
+            self.stats[3] = cz
         else:
             self.center_x[None] = 0.0
             self.center_y[None] = 0.0
             self.center_z[None] = 0.0
+            
+            self.stats[1] = 0.0
+            self.stats[2] = 0.0
+            self.stats[3] = 0.0
     
+    def pull_stats(self):
+        self.cached_stats = self.stats.to_numpy()
+
     def get_alive_count(self) -> int:
-        return self.alive_count_cache[None]
+        return int(self.cached_stats[0])
+        
+    def get_swarm_center(self) -> list[float]:
+        return [self.cached_stats[1], self.cached_stats[2], self.cached_stats[3]]
     
     @ti.func
     def calculate_flocking(self, i: ti.i32, 
@@ -226,21 +249,22 @@ class DroneSwarm:
 
     @ti.kernel
     def _update_mode(self, mode: ti.i32):
+        
         if mode == 0:
-            self.separation_modifier[None] = 2.0
-            self.alignment_modifier[None] = 2.0
-            self.cohesion_modifier[None] = 1.0
+            self.separation_modifier[None] = 3.5
+            self.alignment_modifier[None] = 2
+            self.cohesion_modifier[None] = 1.5
             self.target_weight[None] = 2
         elif mode == 1:
-            self.separation_modifier[None] = 3.0
-            self.alignment_modifier[None] = 0.2
-            self.cohesion_modifier[None] = 0.2
-            self.target_weight[None] = 0.6
+            self.separation_modifier[None] = 3.5
+            self.alignment_modifier[None] = 0.7
+            self.cohesion_modifier[None] = 0.3
+            self.target_weight[None] = 1
         elif mode == 2:
-            self.separation_modifier[None] = 0.5
+            self.separation_modifier[None] = 3
             self.alignment_modifier[None] = 1.0
-            self.cohesion_modifier[None] = 0.5
-            self.target_weight[None] = 0.7
+            self.cohesion_modifier[None] = 1
+            self.target_weight[None] = 1.5
     
     def update_mode(self, mode: DroneModes):
         self.mode = mode

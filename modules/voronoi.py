@@ -19,6 +19,9 @@ class VoronoiDiagram:
         self.total_cells = ti.field(dtype=ti.i32, shape=())
         self.total_cells[None] = self.num_cells
         
+        self.territory_ratio = ti.field(dtype=ti.f32, shape=())
+        self.cached_ratio = 50.0 # Default start value
+        
         self.player_color = ti.Vector([1.0, 0.2, 0.2])
         self.enemy_color = ti.Vector([0.2, 0.2, 1.0])
 
@@ -86,10 +89,17 @@ class VoronoiDiagram:
             
             for v in ti.static(range(6)):
                 self.colors[vert_idx + v] = color
+        
+        self.territory_ratio[None] = (self.player_cells[None] / self.total_cells[None]) * 100.0
     
-    def update(self, player_pos: MatrixField, player_count: int, player_health: Field, enemy_pos: MatrixField, enemy_count: int, enemy_health: Field) -> float:
+    def update(self, player_pos: MatrixField, player_count: int, player_health: Field, enemy_pos: MatrixField, enemy_count: int, enemy_health: Field) -> None:
         self.compute_voronoi(player_pos, player_count, player_health, enemy_pos, enemy_count, enemy_health)
-        return (self.player_cells[None] / self.total_cells[None]) * 100.0
+    
+    def pull_stats(self):
+        self.cached_ratio = self.territory_ratio[None]
+
+    def get_territory_ratio(self) -> float:
+        return self.cached_ratio
     
     def get_vertices(self) -> MatrixField:
         return self.vertices
