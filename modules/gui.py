@@ -22,7 +22,7 @@ class GUI():
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
-        self.drone_count: int = 1000
+        self.drone_count: int = 2000
         self.player_territory: float = 50.0
         
     def load(self):
@@ -75,7 +75,7 @@ class GUI():
 
     def _update_gui(self) -> None:
         
-        with self.gui.sub_window("Controls", 0.01, 0.01, 0.15, 0.3):
+        with self.gui.sub_window("Controls", 0.01, 0.01, 0.15, 0.4):
             if self.gui.button("Pause" if not self.GuiState.PAUSED else "Resume"):
                 self.GuiState.PAUSED = not self.GuiState.PAUSED
 
@@ -107,6 +107,11 @@ class GUI():
             self.gui.text(f"Enemy AI state: {self.enemy_ai.get_state()}")
             self.gui.text(f"Territory: {self.player_territory:.1f}%")
             self.gui.text(f"Win percentage: {domination*100:.1f}%")
+            
+            self.gui.text(f"Z - Attack mode")
+            self.gui.text(f"X - Spread mode")
+            self.gui.text(f"LMB - Set target position")
+            self.gui.text(f"RMB - Move camera")
             
     @run_every_n_calls(20)
     def _calc_voronoi(self) -> None:
