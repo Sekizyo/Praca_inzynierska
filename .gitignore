@@ -16,3 +16,4 @@ dist/
 *.docx
 *.pdf
 temp.py
+ticache/

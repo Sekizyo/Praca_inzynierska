@@ -22,7 +22,7 @@ class GUI():
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
-        self.drone_count: int = 2000
+        self.drone_count: int = 8000
         self.player_territory: float = 50.0
         
     def load(self):
@@ -44,7 +44,6 @@ class GUI():
         self.enemy_ai = self.swarms.get_enemy_ai()
         
         yield "Finalizing"
-        self.update()
         
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()

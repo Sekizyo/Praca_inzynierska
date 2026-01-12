@@ -1,18 +1,34 @@
 import PyInstaller.__main__
 import os
 import shutil
+import time
 from PyInstaller.utils.hooks import collect_all
 
+def robust_rmtree(path, retries=5, delay=1.0):
+    if not os.path.exists(path):
+        return True
+        
+    for i in range(retries):
+        try:
+            shutil.rmtree(path)
+            return True
+        except OSError:
+            if i == retries - 1:
+                print(f"Error: Could not remove '{path}' after {retries} attempts. Please close any programs using it (or pause OneDrive).")
+                return False
+            print(f"Directory '{path}' is locked. Retrying in {delay}s...")
+            time.sleep(delay)
+    return False
+
 if os.path.exists('build'):
-    try:
-        shutil.rmtree('build')
-    except Exception as e:
-        print(f"Warning: Could not remove 'build' directory: {e}")
+    if not robust_rmtree('build'):
+        print("Build aborted due to file lock.")
+        exit(1)
+
 if os.path.exists('dist'):
-    try:
-        shutil.rmtree('dist')
-    except Exception as e:
-        print(f"Warning: Could not remove 'dist' directory: {e}")
+    if not robust_rmtree('dist'):
+        print("Build aborted due to file lock.")
+        exit(1)
 
 datas, binaries, hiddenimports = collect_all('taichi')
 
@@ -32,6 +48,10 @@ for h in hiddenimports:
 sep = ';' if os.name == 'nt' else ':'
 
 datas.append(('modules', 'modules'))
+if os.path.exists('ticache'):
+    datas.append(('ticache', 'ticache'))
+else:
+    print("Warning: 'ticache' directory not found. Pre-compiled kernels will not be bundled.")
 
 for d in datas:
     source, dest = d

@@ -1,5 +1,7 @@
 import taichi as ti
 import threading
+import os
+import sys
 from taichi.ui.window import Window as TWindow
 from taichi.ui import Canvas
 from modules.gui import GUI
@@ -9,8 +11,19 @@ class Window():
     MAP_SIZE: float = 250.0
     
     def __init__(self, title="Drone Voronoi Sim", size=(1920, 1000)) -> None:
-        ti.init(arch=ti.gpu, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, 
-                kernel_profiler=True, advanced_optimization=True, fast_math=True)
+        if getattr(sys, 'frozen', False):
+            application_path = sys._MEIPASS # If the application is run as a exe
+        else:
+            application_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            
+        cache_path = os.path.join(application_path, 'ticache')
+        os.environ['TI_OFFLINE_CACHE_FILE_PATH'] = str(cache_path)
+        
+        if not os.path.exists(cache_path):
+            os.makedirs(cache_path, exist_ok=True)
+
+        ti.init(arch=ti.vulkan, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, 
+                kernel_profiler=False, advanced_optimization=True, fast_math=True)
         self.window: TWindow = TWindow(title, size, pos=(0,30), show_window=True, vsync=False)
         self.canvas: Canvas = self.window.get_canvas()
         self.scene = self.window.get_scene()
