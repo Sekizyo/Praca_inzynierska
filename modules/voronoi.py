@@ -25,6 +25,9 @@ class VoronoiDiagram:
         self.player_color = ti.Vector([1.0, 0.2, 0.2])
         self.enemy_color = ti.Vector([0.2, 0.2, 1.0])
 
+    def reset(self):
+        self.cached_ratio = 50.0
+
     
     @ti.kernel
     def compute_voronoi(self, player_pos: ti.template(), player_count: ti.i32, player_health: ti.template(), enemy_pos: ti.template(), enemy_count: ti.i32, enemy_health: ti.template()):

@@ -40,6 +40,12 @@ class Swarms():
         self.grid_line_count = ti.field(dtype=ti.i32, shape=())
         self.frame_count = 0
 
+    def reset(self):
+        self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
+        self.frame_count = 0
+        self.player_swarm.reset()
+        self.enemy_swarm.reset()
+
     @ti.kernel
     def update_shared_grid(self):
         for I in ti.grouped(self.grid_count_p):

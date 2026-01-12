@@ -58,6 +58,10 @@ class DroneSwarm:
         
         self._initialize()
 
+
+    def reset(self):
+        self._initialize()
+
     @ti.kernel
     def _initialize(self):
         self.separation_modifier[None] = 5.0

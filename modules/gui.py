@@ -44,6 +44,12 @@ class GUI():
         self.enemy_ai = self.swarms.get_enemy_ai()
         
         yield "Finalizing"
+
+    def reset(self):
+        self.swarms.reset()
+        self.voronoi.reset()
+        self._init_camera()
+        self.player_territory = 50.0
         
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()
