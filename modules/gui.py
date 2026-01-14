@@ -113,6 +113,9 @@ class GUI():
             self.gui.text(f"Territory: {self.player_territory:.1f}%")
             self.gui.text(f"Win percentage: {domination*100:.1f}%")
             
+            self.gui.text(f"Frame: {self.frame_time*1000:.2f}ms")
+            self.gui.text(f"FPS: {1.0/(self.frame_time + 1e-5):.1f}")
+            
             self.gui.text(f"Z - Attack mode")
             self.gui.text(f"X - Spread mode")
             self.gui.text(f"LMB - Set target position")
@@ -130,6 +133,10 @@ class GUI():
         )
         
     def update(self) -> None:
+        current_time = time.perf_counter()
+        self.frame_time = current_time - self.last_frame_time
+        self.last_frame_time = current_time
+
         self.player_swarm.pull_stats()
         self.enemy_swarm.pull_stats()
         self.voronoi.pull_stats()
