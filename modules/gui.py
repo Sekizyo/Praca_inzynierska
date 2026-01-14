@@ -22,7 +22,7 @@ class GUI():
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
-        self.drone_count: int = 8000
+        self.drone_count: int = 1000
         self.player_territory: float = 50.0
         
     def load(self):
@@ -33,7 +33,7 @@ class GUI():
         self.map = Map(self.scene, self.MAP_SIZE)
         
         yield "Initializing Voronoi"
-        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE, resolution=50)
+        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE)
 
         yield "Initializing Camera"
         self._init_camera()
@@ -89,7 +89,7 @@ class GUI():
             self.GuiState.SHOW_GRID = self.gui.checkbox("Show Grid", self.GuiState.SHOW_GRID)
             
             if self.gui.button("Print Profile"):
-                ti.profiler.print_kernel_profiler_info()  # default mode='count'
+                ti.profiler.print_kernel_profiler_info()
             
             if self.gui.button("Clear Profile"):
                 ti.profiler.clear_kernel_profiler_info()
@@ -130,16 +130,11 @@ class GUI():
         )
         
     def update(self) -> None:
-        # Pull statistics from GPU to CPU cache once per frame
         self.player_swarm.pull_stats()
         self.enemy_swarm.pull_stats()
         self.voronoi.pull_stats()
         
         self.player_territory = self.voronoi.get_territory_ratio()
-        
-        # current_time = time.perf_counter()
-        # self.dt = min(current_time - self.last_frame_time, 0.05)
-        # self.last_frame_time = current_time
         
         self._update_camera()
         self._handle_input()

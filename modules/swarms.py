@@ -22,7 +22,7 @@ class Swarms():
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
         
-        self.grid_cell_size = 40.0
+        self.grid_cell_size = 64
         self.grid_padding = 2
         self.max_cell_capacity = 300
         

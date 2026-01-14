@@ -24,6 +24,7 @@ class Window():
 
         ti.init(arch=ti.vulkan, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, 
                 kernel_profiler=False, advanced_optimization=True, fast_math=True)
+        
         self.window: TWindow = TWindow(title, size, pos=(0,30), show_window=True, vsync=False)
         self.canvas: Canvas = self.window.get_canvas()
         self.scene = self.window.get_scene()
