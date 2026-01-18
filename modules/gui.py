@@ -24,6 +24,7 @@ class GUI():
         self.last_frame_time: float = time.perf_counter()
         self.drone_count: int = 1000
         self.player_territory: float = 50.0
+        self.stats_frame_counter: int = 0
         
     def load(self):
         yield "Initializing Swarms"
@@ -94,9 +95,15 @@ class GUI():
                 ti.profiler.clear_kernel_profiler_info()
             
             # Calculate domination score
-            self.player_swarm.pull_stats()
-            self.enemy_swarm.pull_stats()
-            self.player_territory = self.voronoi.get_territory_ratio()
+            if self.stats_frame_counter % 30 == 0:
+                self.player_swarm.pull_stats()
+                self.enemy_swarm.pull_stats()
+                self.voronoi.pull_stats()
+                self.player_territory = self.voronoi.get_territory_ratio()
+                self.stats_frame_counter = 0
+            
+            self.stats_frame_counter += 1
+
             player_count = self.player_swarm.get_alive_count()
             enemy_count = self.enemy_swarm.get_alive_count()
             total_drones = player_count + enemy_count
@@ -139,10 +146,6 @@ class GUI():
         self.frame_time = current_time - self.last_frame_time
         self.last_frame_time = current_time
 
-        
-        self._handle_input()
-        self._update_gui()
-        
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
             self.swarms.update_logic(self.dt, self.player_territory)
@@ -154,3 +157,6 @@ class GUI():
             
         if self.GuiState.SHOW_VORONOI:
             self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
+            
+        self._handle_input()
+        self._update_gui()
