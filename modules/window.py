@@ -12,6 +12,7 @@ class Window():
     STATE_MENU: int = 0
     STATE_LOADING: int = 1
     STATE_GAME: int = 2
+    STATE_VICTORY: int = 3
     
     def __init__(self, title="Drone Voronoi Sim", size=(1920, 1000)) -> None:
         
@@ -77,6 +78,24 @@ class Window():
             self.loading_text = text
         self.state = self.STATE_GAME
 
+    def render_victory(self) -> None:
+        self.canvas.set_background_color((0.0, 0.1, 0.0))
+        gui = self.window.get_gui()
+        
+        with gui.sub_window('Victory', 0.3, 0.3, 0.4, 0.4):
+            gui.text('VICTORY!', color=(0.5, 1.0, 0.5))
+            gui.text('')
+            gui.text('You have achieved total domination!', color=(1, 1, 1))
+            gui.text('')
+            gui.text(f'Drones used: {self.drone_count} per team', color=(0.8, 0.8, 0.8))
+            gui.text('')
+            
+            if gui.button('Return to Main Menu'):
+                self.gui = None
+                self.loader = None
+                self.state = self.STATE_MENU
+                self.loading_frames = 0
+
     def run(self) -> None:
         while self.window.running:
             if self.state == self.STATE_MENU:
@@ -86,12 +105,18 @@ class Window():
                 self.render_loading()
                 self.window.show()
                 self.loading_frames += 1
+            elif self.state == self.STATE_VICTORY:
+                self.render_victory()
+                self.window.show()
             else:
                 if self.gui.return_to_menu:
                     self.gui = None
                     self.loader = None
                     self.state = self.STATE_MENU
                     self.loading_frames = 0
+                    continue
+                if self.gui.victory:
+                    self.state = self.STATE_VICTORY
                     continue
                 self.gui.update()
                 self.canvas.scene(self.scene)

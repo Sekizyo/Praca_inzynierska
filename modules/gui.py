@@ -26,6 +26,7 @@ class GUI():
         self.player_territory: float = 50.0
         self.stats_frame_counter: int = 0
         self.return_to_menu: bool = False
+        self.victory: bool = False
         
     def load(self):
         yield "Initializing Swarms"
@@ -119,6 +120,9 @@ class GUI():
                 domination = (drone_ratio * 0.7 + territory_ratio * 0.3)
             else:
                 domination = 0.5
+            
+            if domination >= 0.97:
+                self.victory = True
             
             self.gui.text(f"Player drones: {player_count}")
             self.gui.text(f"Enemy drones: {enemy_count}")
