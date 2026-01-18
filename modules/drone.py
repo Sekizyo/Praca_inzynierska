@@ -203,11 +203,10 @@ class DroneSwarm:
                         
                         # Separation
                         if dist_sq < rad_sep_sq and dist_sq > 1e-6:
-                            inv_dist = ti.rsqrt(dist_sq)
-                            steer_sep += diff * inv_dist * inv_dist
+                            steer_sep += diff / dist_sq
                             count_sep += 1
                         
-                        # Alignment & Cohesion share same radius usually
+                        # Alignment & Cohesion share same radius
                         if dist_sq < rad_ali_sq:
                             steer_ali += self.vel[j]
                             count_ali += 1
@@ -383,7 +382,8 @@ class DroneSwarm:
             target_idx = -1
             
             # Grid lookup for shooting
-            pos_i = self.pos[i] + grid_offset
+            local_pos_i = self.pos[i]
+            pos_i = local_pos_i + grid_offset
             base_x = int(pos_i.x / grid_cell_size) + grid_padding
             base_y = int(pos_i.y / grid_cell_size) + grid_padding
             base_z = int(pos_i.z / grid_cell_size) + grid_padding
@@ -400,21 +400,20 @@ class DroneSwarm:
                         
                         for k in range(limit):
                             j = grid_buckets[gx, gy, gz, k]
+                            diff = local_pos_i - enemy_pos[j]
+                            dist_sq = diff.norm_sqr()
                             
-                            if enemy_health[j][0] > 0.0:
-                                diff = self.pos[i] - enemy_pos[j]
-                                dist_sq = diff.norm_sqr()
-                                if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
-                                    min_dist_sq = dist_sq
-                                    target_idx = j
+                            if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
+                                min_dist_sq = dist_sq
+                                target_idx = j
             
             if target_idx >= 0 and self.projectile_free_count[None] > 0:
                 free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
                 if free_idx >= 0:
                     p = self.projectile_free_list[free_idx]
-                    direction = enemy_pos[target_idx] - self.pos[i]
+                    direction = enemy_pos[target_idx] - local_pos_i
                     inv_dist = ti.rsqrt(min_dist_sq)
-                    self.projectile_pos[p] = self.pos[i]
+                    self.projectile_pos[p] = local_pos_i
                     self.projectile_vel[p] = direction * (inv_dist * self.projectile_speed)
                     self.projectile_active[p] = 1
                     self.projectile_lifetime[p] = self.projectile_max_lifetime
