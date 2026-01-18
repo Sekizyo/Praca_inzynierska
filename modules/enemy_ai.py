@@ -84,8 +84,8 @@ class EnemyAI:
             self.current_waypoint = (self.current_waypoint + 1) % len(self.patrol_waypoints)
     
     def _execute_attack(self, player_swarm: DroneSwarm) -> None:
-        self.target_field[0] = player_swarm.get_swarm_center()
-        self.target_field[0][2] = self.map_size * 0.5 
+        center = player_swarm.get_swarm_center()
+        self.target_field[0] = [center[0], center[1], self.map_size * 0.5] 
     
     def _execute_spread(self, player_swarm: DroneSwarm) -> None:
         enemy_center = self.swarm.get_swarm_center()

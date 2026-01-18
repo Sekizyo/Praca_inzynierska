@@ -36,11 +36,11 @@ class VoronoiDiagram:
         res_minus_1 = res - 1
         inv_res = 1.0 / ti.cast(res_minus_1, ti.f32)
         cell_size = inv_res * 2.0 * self.boundary
+        boundary_2 = 2.0 * self.boundary
         
         for i, j in ti.ndrange(res_minus_1, res_minus_1):
-            # Calculate coordinates
             grid_pos = ti.cast(ti.Vector([i, j]), ti.f32)
-            base_pos = (grid_pos * inv_res - 0.5) * 2.0 * self.boundary
+            base_pos = (grid_pos * inv_res - 0.5) * boundary_2
             
             x0, y0 = base_pos.x, base_pos.y
             x1, y1 = x0 + cell_size, y0 + cell_size

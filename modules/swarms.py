@@ -1,9 +1,8 @@
 from modules.drone import DroneSwarm
-from modules.colors import PLAYER_COLOR, ENEMY_COLOR, PROJECTILE_COLOR, GRID_COLOR
+from modules.colors import GRID_COLOR
 import taichi as ti
 from taichi.ui.scene import SceneV2
 
-from modules.colors import TARGET_COLOR, ENEMY_TARGET_COLOR
 from modules.gui_utils import GuiState
 from modules.enemy_ai import EnemyAI
 
@@ -21,6 +20,15 @@ class Swarms():
     def _init_swarms(self) -> None:
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
+        
+        self.total_drones = self.drone_count * 2
+        self.total_projectiles = self.drone_count * 2
+        self.batched_drone_pos = ti.Vector.field(3, dtype=ti.f32, shape=self.total_drones)
+        self.batched_drone_colors = ti.Vector.field(3, dtype=ti.f32, shape=self.total_drones)
+        self.batched_projectile_pos = ti.Vector.field(3, dtype=ti.f32, shape=self.total_projectiles)
+        self.batched_projectile_colors = ti.Vector.field(3, dtype=ti.f32, shape=self.total_projectiles)
+        self.batched_target_pos = ti.Vector.field(3, dtype=ti.f32, shape=2)
+        self.batched_target_colors = ti.Vector.field(3, dtype=ti.f32, shape=2)
         
         self.grid_cell_size = 64
         self.grid_padding = 2
@@ -178,23 +186,46 @@ class Swarms():
             self.grid_padding
         )
         
-    def _draw(self, gui_state: GuiState) -> None:
-        if gui_state.SHOW_GRID:
-            self.update_grid_vis()
-            self.scene.lines(self.grid_lines, color=GRID_COLOR, width=1.0)
+    @ti.kernel
+    def batch_render_data(self):
+        player_color = ti.Vector([1.0, 0.2, 0.2])
+        enemy_color = ti.Vector([0.2, 0.2, 1.0])
+        projectile_color = ti.Vector([1.0, 1.0, 1.0])
+        target_color = ti.Vector([1.0, 1.0, 0.0])
+        enemy_target_color = ti.Vector([0.0, 1.0, 1.0])
+        
+        for i in range(self.drone_count):
+            self.batched_drone_pos[i] = self.player_swarm.pos[i]
+            self.batched_drone_colors[i] = player_color
             
+            self.batched_drone_pos[i + self.drone_count] = self.enemy_swarm.pos[i]
+            self.batched_drone_colors[i + self.drone_count] = enemy_color
+            
+            self.batched_projectile_pos[i] = self.player_swarm.projectile_pos[i]
+            self.batched_projectile_colors[i] = projectile_color
+            
+            self.batched_projectile_pos[i + self.drone_count] = self.enemy_swarm.projectile_pos[i]
+            self.batched_projectile_colors[i + self.drone_count] = projectile_color
+        
+        self.batched_target_pos[0] = self.player_target_field[0]
+        self.batched_target_colors[0] = target_color
+        self.batched_target_pos[1] = self.enemy_ai.target_field[0]
+        self.batched_target_colors[1] = enemy_target_color
+
+    def _draw(self, gui_state: GuiState) -> None:
         if self.frame_count % 10 == 0:
             self.player_swarm.update_statistics()
             self.enemy_swarm.update_statistics()
-
-        self.scene.particles(self.player_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
-        self.scene.particles(self.enemy_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
         
-        self.scene.particles(self.player_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
-        self.scene.particles(self.enemy_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
+        self.batch_render_data()
         
-        self.scene.particles(self.get_player_target(), color=TARGET_COLOR, radius=5.0)
-        self.scene.particles(self.enemy_ai.get_target_field(), color=ENEMY_TARGET_COLOR, radius=5.0)
+        self.scene.particles(self.batched_drone_pos, per_vertex_color=self.batched_drone_colors, radius=1.0)
+        self.scene.particles(self.batched_projectile_pos, per_vertex_color=self.batched_projectile_colors, radius=0.5)
+        self.scene.particles(self.batched_target_pos, per_vertex_color=self.batched_target_colors, radius=5.0)
+        
+        if gui_state.SHOW_GRID:
+            self.update_grid_vis()
+            self.scene.lines(self.grid_lines, color=GRID_COLOR, width=1.0)
         
     def get_player_swarm(self) -> DroneSwarm:
         return self.player_swarm

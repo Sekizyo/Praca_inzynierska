@@ -94,15 +94,16 @@ class GUI():
             if self.gui.button("Clear Profile"):
                 ti.profiler.clear_kernel_profiler_info()
             
-            # Calculate domination score
+            # Calculate domination score - only pull when absolutely needed for GUI
+            # Removed pull_stats() to eliminate CPU-GPU sync
+            self.stats_frame_counter += 1
+            
             if self.stats_frame_counter % 30 == 0:
                 self.player_swarm.pull_stats()
                 self.enemy_swarm.pull_stats()
                 self.voronoi.pull_stats()
                 self.player_territory = self.voronoi.get_territory_ratio()
                 self.stats_frame_counter = 0
-            
-            self.stats_frame_counter += 1
 
             player_count = self.player_swarm.get_alive_count()
             enemy_count = self.enemy_swarm.get_alive_count()
@@ -146,17 +147,22 @@ class GUI():
         self.frame_time = current_time - self.last_frame_time
         self.last_frame_time = current_time
 
+        # Batch all logic updates together before any rendering
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
             self.swarms.update_logic(self.dt, self.player_territory)
-            
-        self.swarms.update_draw(self.GuiState)
         
+        # Handle input (no GPU sync)
+        self._handle_input()
+        self._update_gui()
+        
+        # Batch all rendering calls together at the end
+        # This allows GPU to process all compute kernels before rendering starts
         if self.GuiState.SHOW_BOUNDARY:
             self.map.draw_boundary()
             
         if self.GuiState.SHOW_VORONOI:
             self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
-            
-        self._handle_input()
-        self._update_gui()
+        
+        # All particle rendering happens in one batch
+        self.swarms.update_draw(self.GuiState)

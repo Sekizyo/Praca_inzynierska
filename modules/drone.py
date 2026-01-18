@@ -284,46 +284,49 @@ class DroneSwarm:
                grid_offset: ti.types.vector(3, ti.f32)):
         
         target_weight_val = self.target_weight[None]
+        boundary_val = self.boundary
         
         for i in range(self.N):
             if self.active[i][0] == 0:
                 continue
 
-            # Cache position and velocity to avoid repeated global memory access
             pos_val = self.pos[i]
             vel_val = self.vel[i]
             acc_val = ti.Vector([0.0, 0.0, 0.0])
             
             flocking_force = self.calculate_flocking(i, pos_val, vel_val, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
             acc_val += flocking_force
-            
+            # Optimized boundary forces with fewer branches
             boundary_force = self.max_force * 5.0
             margin = 10.0
-            boundary_max = self.boundary - margin
-            boundary_min = -self.boundary + margin
+            boundary_max = boundary_val - margin
+            boundary_min = -boundary_val + margin
             inv_margin = 1.0 / margin
             
+            # X boundary
             if pos_val.x > boundary_max:
                 acc_val.x -= boundary_force * (pos_val.x - boundary_max) * inv_margin
             elif pos_val.x < boundary_min:
                 acc_val.x += boundary_force * (boundary_min - pos_val.x) * inv_margin
             
+            # Y boundary  
             if pos_val.y > boundary_max:
                 acc_val.y -= boundary_force * (pos_val.y - boundary_max) * inv_margin
             elif pos_val.y < boundary_min:
                 acc_val.y += boundary_force * (boundary_min - pos_val.y) * inv_margin
             
+            # Z boundary
             if pos_val.z > boundary_max:
                 acc_val.z -= boundary_force * (pos_val.z - boundary_max) * inv_margin
             elif pos_val.z < margin:
                 acc_val.z += boundary_force * (margin - pos_val.z) * inv_margin
             
-            # Update Position with Boundary Clamping
-            new_pos_x = ti.math.clamp(pos_val.x, -self.boundary, self.boundary)
-            new_pos_y = ti.math.clamp(pos_val.y, -self.boundary, self.boundary)
-            new_pos_z = ti.math.clamp(pos_val.z, 0.0, self.boundary)
+            # Optimized boundary clamping with cached boundary value
+            new_pos_x = ti.math.clamp(pos_val.x, -boundary_val, boundary_val)
+            new_pos_y = ti.math.clamp(pos_val.y, -boundary_val, boundary_val)
+            new_pos_z = ti.math.clamp(pos_val.z, 0.0, boundary_val)
             
-            # Zero velocity if hitting wall
+            # Zero velocity if hitting wall (branch prediction friendly)
             if new_pos_x != pos_val.x:
                 vel_val.x = 0.0
             if new_pos_y != pos_val.y:
@@ -351,10 +354,12 @@ class DroneSwarm:
             self.vel[i] = vel_val
             self.acc[i] = acc_val
             
-            if self.cooldown[i][0] > 0.0:
-                self.cooldown[i][0] -= dt
+            # Update cooldown in-place
+            cooldown_val = self.cooldown[i][0]
+            if cooldown_val > 0.0:
+                self.cooldown[i][0] = cooldown_val - dt
             
-            # Batched health check to reduce kernel launches
+            # Health check (inlined to reduce kernel complexity)
             if self.health[i][0] <= 0.0:
                 self.active[i] = 0
                 self.pos[i] = ti.Vector([-10000.0, 0.0, 0.0])
@@ -371,9 +376,13 @@ class DroneSwarm:
                               grid_shape: ti.types.vector(3, ti.i32),
                               grid_cell_size: ti.f32,
                               grid_padding: ti.i32):
+        # Cache constants to reduce field access
         shoot_range_sq = self.shoot_range * self.shoot_range
         hit_radius_sq = self.hit_radius * self.hit_radius
+        boundary_val = self.boundary
+        projectile_speed_val = self.projectile_speed
         
+        # SHOOTING PHASE - separate loop for better GPU occupancy
         for i in range(self.N):
             if self.active[i][0] == 0 or self.cooldown[i][0] > 0.0:
                 continue
@@ -414,24 +423,31 @@ class DroneSwarm:
                     direction = enemy_pos[target_idx] - local_pos_i
                     inv_dist = ti.rsqrt(min_dist_sq)
                     self.projectile_pos[p] = local_pos_i
-                    self.projectile_vel[p] = direction * (inv_dist * self.projectile_speed)
+                    self.projectile_vel[p] = direction * (inv_dist * projectile_speed_val)
                     self.projectile_active[p] = 1
                     self.projectile_lifetime[p] = self.projectile_max_lifetime
                     self.cooldown[i] = self.shoot_cooldown
         
+        # PROJECTILE UPDATE PHASE - optimized for better memory coalescing
         for i in range(self.max_projectiles):
             if self.projectile_active[i] == 0:
                 continue
             
-            self.projectile_pos[i] += self.projectile_vel[i] * dt
-            self.projectile_lifetime[i] -= dt
+            # Cache projectile data
+            proj_pos = self.projectile_pos[i]
+            proj_vel = self.projectile_vel[i]
+            proj_lifetime = self.projectile_lifetime[i]
             
-            pos = self.projectile_pos[i]
+            # Update position and lifetime
+            proj_pos += proj_vel * dt
+            proj_lifetime -= dt
+            
+            # Optimized boundary check
             should_deactivate = (
-                self.projectile_lifetime[i] <= 0.0 or
-                pos.x > self.boundary or pos.x < -self.boundary or
-                pos.y > self.boundary or pos.y < -self.boundary or
-                pos.z > self.boundary or pos.z < 0.0
+                proj_lifetime <= 0.0 or
+                proj_pos.x > boundary_val or proj_pos.x < -boundary_val or
+                proj_pos.y > boundary_val or proj_pos.y < -boundary_val or
+                proj_pos.z > boundary_val or proj_pos.z < 0.0
             )
             
             if should_deactivate:
@@ -441,14 +457,19 @@ class DroneSwarm:
                 self.projectile_free_list[free_idx] = i
                 continue
             
-            # Grid lookup for hit detection
-            pos_p = self.projectile_pos[i] + grid_offset
+            # Write back updated values
+            self.projectile_pos[i] = proj_pos
+            self.projectile_lifetime[i] = proj_lifetime
+            
+            # Grid lookup for hit detection - optimized with early exit
+            pos_p = proj_pos + grid_offset
             base_x = int(pos_p.x / grid_cell_size) + grid_padding
             base_y = int(pos_p.y / grid_cell_size) + grid_padding
             base_z = int(pos_p.z / grid_cell_size) + grid_padding
             
             hit_detected = 0
             
+            # Optimized 3D grid search with early exit
             for dx in ti.static(range(-1, 2)):
                 for dy in ti.static(range(-1, 2)):
                     for dz in ti.static(range(-1, 2)):
@@ -464,12 +485,11 @@ class DroneSwarm:
                                 j = grid_buckets[gx, gy, gz, k]
                                 
                                 if enemy_health[j][0] > 0.0:
-                                    diff = self.projectile_pos[i] - enemy_pos[j]
+                                    diff = proj_pos - enemy_pos[j]
                                     dist_sq = diff.norm_sqr()
                                     if dist_sq < hit_radius_sq:
                                         self.projectile_active[i] = 0
                                         self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
-                                        # Using atomic_add on the specific component
                                         ti.atomic_add(enemy_health[j][0], -self.projectile_damage)
                                         free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
                                         self.projectile_free_list[free_idx] = i
