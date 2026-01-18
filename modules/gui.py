@@ -59,12 +59,11 @@ class GUI():
         self.camera.fov(90)
         
     def _update_camera(self) -> None:
-        self.camera.track_user_inputs(self.window, movement_speed=3, hold_key=RMB)
+        self.camera.track_user_inputs(self.window, movement_speed=3.0, hold_key=RMB)
         self.scene.set_camera(self.camera)
         self.scene.point_light(pos=(0, 0, self.MAP_SIZE), color=(1, 1, 1))
         
     def _handle_input(self) -> None:
-        self.window.get_event()
         if self.window.is_pressed("z"):
             self.player_swarm.update_mode(DroneModes.ATTACK)
         elif self.window.is_pressed("x"):
@@ -77,9 +76,9 @@ class GUI():
             x = (mouse_pos[0] - 0.5) * self.MAP_SIZE * 2.0
             y = (mouse_pos[1] - 0.5) * self.MAP_SIZE * 2.0
             self.swarms.set_player_target(x, y)
+        self._update_camera()
 
     def _update_gui(self) -> None:
-        
         with self.gui.sub_window("Controls", 0.01, 0.01, 0.15, 0.4):
             if self.gui.button("Pause" if not self.GuiState.PAUSED else "Resume"):
                 self.GuiState.PAUSED = not self.GuiState.PAUSED
@@ -95,6 +94,9 @@ class GUI():
                 ti.profiler.clear_kernel_profiler_info()
             
             # Calculate domination score
+            self.player_swarm.pull_stats()
+            self.enemy_swarm.pull_stats()
+            self.player_territory = self.voronoi.get_territory_ratio()
             player_count = self.player_swarm.get_alive_count()
             enemy_count = self.enemy_swarm.get_alive_count()
             total_drones = player_count + enemy_count
@@ -137,19 +139,14 @@ class GUI():
         self.frame_time = current_time - self.last_frame_time
         self.last_frame_time = current_time
 
-        self.player_swarm.pull_stats()
-        self.enemy_swarm.pull_stats()
-        self.voronoi.pull_stats()
         
-        self.player_territory = self.voronoi.get_territory_ratio()
-        
-        self._update_camera()
         self._handle_input()
         self._update_gui()
         
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
             self.swarms.update_logic(self.dt, self.player_territory)
+            
         self.swarms.update_draw(self.GuiState)
         
         if self.GuiState.SHOW_BOUNDARY:
