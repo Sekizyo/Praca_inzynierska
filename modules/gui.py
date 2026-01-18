@@ -14,7 +14,7 @@ import time
 class GUI():
     MAP_SIZE: float = 400.0
     
-    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2) -> None:
+    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, drone_count: int = 1000) -> None:
         self.gui = gui
         self.window = window
         self.scene = scene
@@ -22,9 +22,10 @@ class GUI():
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
-        self.drone_count: int = 1000
+        self.drone_count: int = drone_count
         self.player_territory: float = 50.0
         self.stats_frame_counter: int = 0
+        self.return_to_menu: bool = False
         
     def load(self):
         yield "Initializing Swarms"
@@ -81,6 +82,9 @@ class GUI():
 
     def _update_gui(self) -> None:
         with self.gui.sub_window("Controls", 0.01, 0.01, 0.15, 0.4):
+            if self.gui.button("Main Menu"):
+                self.return_to_menu = True
+            
             if self.gui.button("Pause" if not self.GuiState.PAUSED else "Resume"):
                 self.GuiState.PAUSED = not self.GuiState.PAUSED
 
