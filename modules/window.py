@@ -13,6 +13,7 @@ class Window():
     STATE_LOADING: int = 1
     STATE_GAME: int = 2
     STATE_VICTORY: int = 3
+    STATE_DEFEAT: int = 4
     
     def __init__(self, title="Drone Voronoi Sim", size=(1920, 1000)) -> None:
         
@@ -96,6 +97,24 @@ class Window():
                 self.state = self.STATE_MENU
                 self.loading_frames = 0
 
+    def render_defeat(self) -> None:
+        self.canvas.set_background_color((0.1, 0.0, 0.0))
+        gui = self.window.get_gui()
+        
+        with gui.sub_window('Defeat', 0.3, 0.3, 0.4, 0.4):
+            gui.text('DEFEAT', color=(1.0, 0.3, 0.3))
+            gui.text('')
+            gui.text('Your forces have been eliminated!', color=(1, 1, 1))
+            gui.text('')
+            gui.text(f'Drones used: {self.drone_count} per team', color=(0.8, 0.8, 0.8))
+            gui.text('')
+            
+            if gui.button('Return to Main Menu'):
+                self.gui = None
+                self.loader = None
+                self.state = self.STATE_MENU
+                self.loading_frames = 0
+
     def run(self) -> None:
         while self.window.running:
             if self.state == self.STATE_MENU:
@@ -108,6 +127,9 @@ class Window():
             elif self.state == self.STATE_VICTORY:
                 self.render_victory()
                 self.window.show()
+            elif self.state == self.STATE_DEFEAT:
+                self.render_defeat()
+                self.window.show()
             else:
                 if self.gui.return_to_menu:
                     self.gui = None
@@ -117,6 +139,9 @@ class Window():
                     continue
                 if self.gui.victory:
                     self.state = self.STATE_VICTORY
+                    continue
+                if self.gui.defeat:
+                    self.state = self.STATE_DEFEAT
                     continue
                 self.gui.update()
                 self.canvas.scene(self.scene)

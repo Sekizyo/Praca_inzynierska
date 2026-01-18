@@ -23,10 +23,10 @@ class GUI():
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
         self.drone_count: int = drone_count
-        self.player_territory: float = 50.0
         self.stats_frame_counter: int = 0
         self.return_to_menu: bool = False
         self.victory: bool = False
+        self.defeat: bool = False
         
     def load(self):
         yield "Initializing Swarms"
@@ -93,14 +93,6 @@ class GUI():
             self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
             self.GuiState.SHOW_GRID = self.gui.checkbox("Show Grid", self.GuiState.SHOW_GRID)
             
-            if self.gui.button("Print Profile"):
-                ti.profiler.print_kernel_profiler_info()
-            
-            if self.gui.button("Clear Profile"):
-                ti.profiler.clear_kernel_profiler_info()
-            
-            # Calculate domination score - only pull when absolutely needed for GUI
-            # Removed pull_stats() to eliminate CPU-GPU sync
             self.stats_frame_counter += 1
             
             if self.stats_frame_counter % 30 == 0:
@@ -124,12 +116,14 @@ class GUI():
             if domination >= 0.97:
                 self.victory = True
             
+            if domination <= 0.1:
+                self.defeat = True
+            
+            self.gui.text(f"Win percentage: {domination*100:.1f}%")
             self.gui.text(f"Player drones: {player_count}")
             self.gui.text(f"Enemy drones: {enemy_count}")
             self.gui.text(f"Player mode: {self.player_swarm.get_mode()}")
             self.gui.text(f"Enemy AI state: {self.enemy_ai.get_state()}")
-            self.gui.text(f"Territory: {self.player_territory:.1f}%")
-            self.gui.text(f"Win percentage: {domination*100:.1f}%")
             
             self.gui.text(f"Frame: {self.frame_time*1000:.2f}ms")
             self.gui.text(f"FPS: {1.0/(self.frame_time + 1e-5):.1f}")
@@ -155,22 +149,17 @@ class GUI():
         self.frame_time = current_time - self.last_frame_time
         self.last_frame_time = current_time
 
-        # Batch all logic updates together before any rendering
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
             self.swarms.update_logic(self.dt, self.player_territory)
         
-        # Handle input (no GPU sync)
         self._handle_input()
         self._update_gui()
         
-        # Batch all rendering calls together at the end
-        # This allows GPU to process all compute kernels before rendering starts
         if self.GuiState.SHOW_BOUNDARY:
             self.map.draw_boundary()
             
         if self.GuiState.SHOW_VORONOI:
             self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
         
-        # All particle rendering happens in one batch
         self.swarms.update_draw(self.GuiState)
