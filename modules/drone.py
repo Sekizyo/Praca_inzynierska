@@ -41,7 +41,6 @@ class DroneSwarm:
         self.projectile_free_list: Field = ti.field(dtype=ti.i32, shape=self.max_projectiles)
         self.projectile_free_count: Field = ti.field(dtype=ti.i32, shape=())
         
-        # Modifiers as Taichi fields
         self.separation_modifier = ti.field(dtype=ti.f32, shape=())
         self.alignment_modifier = ti.field(dtype=ti.f32, shape=())
         self.cohesion_modifier = ti.field(dtype=ti.f32, shape=())
@@ -111,7 +110,6 @@ class DroneSwarm:
     
     @ti.kernel
     def update_statistics(self):
-        """Compute all statistics in a single kernel to avoid multiple CPU-GPU syncs"""
         total_x = 0.0
         total_y = 0.0
         total_z = 0.0
@@ -350,17 +348,17 @@ class DroneSwarm:
             
             pos_val += vel_val * dt
             
-            # Write back to global memory once
+            # Write back to global memory
             self.pos[i] = pos_val
             self.vel[i] = vel_val
             self.acc[i] = acc_val
             
-            # Update cooldown in-place
+            # Update cooldown
             cooldown_val = self.cooldown[i][0]
             if cooldown_val > 0.0:
                 self.cooldown[i][0] = cooldown_val - dt
             
-            # Health check (inlined to reduce kernel complexity)
+            # Health check
             if self.health[i][0] <= 0.0:
                 self.active[i] = 0
                 self.pos[i] = ti.Vector([-10000.0, 0.0, 0.0])
@@ -383,7 +381,7 @@ class DroneSwarm:
         boundary_val = self.boundary
         projectile_speed_val = self.projectile_speed
         
-        # SHOOTING PHASE - separate loop for better GPU occupancy
+        # Shooting phase 
         for i in range(self.N):
             if self.active[i][0] == 0 or self.cooldown[i][0] > 0.0:
                 continue
@@ -429,7 +427,7 @@ class DroneSwarm:
                     self.projectile_lifetime[p] = self.projectile_max_lifetime
                     self.cooldown[i] = self.shoot_cooldown
         
-        # PROJECTILE UPDATE PHASE - optimized for better memory coalescing
+        # Projectile update phase
         for i in range(self.max_projectiles):
             if self.projectile_active[i] == 0:
                 continue
@@ -470,7 +468,6 @@ class DroneSwarm:
             
             hit_detected = 0
             
-            # Optimized 3D grid search with early exit
             for dx in ti.static(range(-1, 2)):
                 for dy in ti.static(range(-1, 2)):
                     for dz in ti.static(range(-1, 2)):
@@ -498,7 +495,6 @@ class DroneSwarm:
                                         break
     
     def get_swarm_center(self):
-        """Return cached swarm center (no kernel launch)"""
         return [self.center_x[None], self.center_y[None], self.center_z[None]]
                     
     def get_pos_field(self) -> MatrixField:
