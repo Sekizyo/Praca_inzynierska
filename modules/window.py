@@ -16,8 +16,6 @@ class Window():
     STATE_DEFEAT: int = 4
     
     def __init__(self, title="Drone Voronoi Sim", size=(1920, 1000)) -> None:
-        
-
         ti.init(arch=ti.vulkan, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, 
                 kernel_profiler=False, advanced_optimization=True, fast_math=True)        
         self.window: TWindow = TWindow(title, size, pos=(0,30), show_window=True, vsync=False)
@@ -65,6 +63,11 @@ class Window():
 
     def _start_game(self) -> None:
         self.state = self.STATE_LOADING
+        if self.gui is not None and self.gui.drone_count == self.drone_count:
+            self.canvas.set_background_color((0, 0, 0))
+            self.gui.reset()
+            self.state = self.STATE_GAME
+            return
         self.gui = GUI(self.window.get_gui(), self.window, self.scene, self.drone_count)
         self.loader = self.gui.load()
         threading.Thread(target=self._run_loader, daemon=True).start()
@@ -92,7 +95,7 @@ class Window():
             gui.text('')
             
             if gui.button('Return to Main Menu'):
-                self.gui = None
+                self.gui.GuiState.PAUSED = True
                 self.loader = None
                 self.state = self.STATE_MENU
                 self.loading_frames = 0
@@ -110,7 +113,7 @@ class Window():
             gui.text('')
             
             if gui.button('Return to Main Menu'):
-                self.gui = None
+                self.gui.GuiState.PAUSED = True
                 self.loader = None
                 self.state = self.STATE_MENU
                 self.loading_frames = 0
@@ -132,7 +135,7 @@ class Window():
                 self.window.show()
             else:
                 if self.gui.return_to_menu:
-                    self.gui = None
+                    self.gui.return_to_menu = False
                     self.loader = None
                     self.state = self.STATE_MENU
                     self.loading_frames = 0

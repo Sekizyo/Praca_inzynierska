@@ -96,6 +96,7 @@ class DroneSwarm:
             
         
         for i in range(self.max_projectiles):
+            self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
             self.projectile_active[i] = 0
             self.projectile_lifetime[i] = 0.0
             self.projectile_free_list[i] = i

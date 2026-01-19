@@ -27,6 +27,7 @@ class GUI():
         self.return_to_menu: bool = False
         self.victory: bool = False
         self.defeat: bool = False
+        self.player_territory = 50.0
         
     def load(self):
         yield "Initializing Swarms"
@@ -53,6 +54,10 @@ class GUI():
         self.voronoi.reset()
         self._init_camera()
         self.player_territory = 50.0
+        self.return_to_menu = False
+        self.victory = False
+        self.defeat = False
+        self.GuiState.PAUSED = False
         
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()
