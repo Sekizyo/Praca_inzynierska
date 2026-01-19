@@ -1,12 +1,16 @@
 import taichi as ti
 import threading
+from typing import Optional
+from taichi.ui.canvas import SceneV2
 from taichi.ui.window import Window as TWindow
 from taichi.ui import Canvas
 from modules.gui import GUI
+from modules.colors import *
 
 
 class Window():
     MAP_SIZE: float = 250.0
+    DRONE_PRESETS: list[int] = [500, 1000, 2000, 4000, 8000]
     STATE_MENU: int = 0
     STATE_LOADING: int = 1
     STATE_GAME: int = 2
@@ -17,46 +21,54 @@ class Window():
         ti.init(arch=ti.vulkan, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, kernel_profiler=False, advanced_optimization=True, fast_math=True)        
         self.window: TWindow = TWindow(title, size, pos=(0,30), show_window=True, vsync=False)
         self.canvas: Canvas = self.window.get_canvas()
-        self.scene = self.window.get_scene()
-        self.gui: GUI = None
+        self.scene: SceneV2 = self.window.get_scene()
+        self.gui: Optional[GUI] = None
         self.loader = None
+        
+        
         self.state: int = self.STATE_MENU
         self.loading_text: str = 'Starting'
         self.loading_frames: int = 0
-        self.drone_count: int = 1000
-        self.drone_presets: list[int] = [500, 1000, 2000, 4000, 8000]
+        self.drone_count: int = 0
         self.selected_preset: int = 1
 
-    def render_menu(self) -> None:
-        self.canvas.set_background_color((0.05, 0.05, 0.1))
+    def _render_menu(self) -> None:
+        self.canvas.set_background_color(MENU_BACKGROUND_COLOR)
         gui = self.window.get_gui()
-        
+
         with gui.sub_window('Drone Voronoi Sim', 0.3, 0.2, 0.4, 0.6):
-            gui.text('Welcome to Drone Voronoi Simulator', color=(1, 1, 1))
+            gui.text('Welcome to Drone Voronoi Simulator', color=TEXT_COLOR_WHITE)
             gui.text('')
-            gui.text('Select drone count per team:', color=(0.8, 0.8, 0.8))
+            gui.text('Select drone count per team:', color=TEXT_COLOR_GRAY)
             gui.text('')
-            
-            for i, preset in enumerate(self.drone_presets):
+
+            for i, preset in enumerate(self.DRONE_PRESETS):
                 label = f'> {preset} drones <' if i == self.selected_preset else f'  {preset} drones  '
                 if gui.button(label):
                     self.selected_preset = i
                     self.drone_count = preset
-            
+
             gui.text('')
-            gui.text(f'Selected: {self.drone_count} drones per team', color=(0.5, 1, 0.5))
-            gui.text(f'Total drones: {self.drone_count * 2}', color=(0.5, 1, 0.5))
+            gui.text(f'Selected: {self.drone_count} drones per team', color=TEXT_COLOR_GREEN)
+            gui.text(f'Total drones: {self.drone_count * 2}', color=TEXT_COLOR_GREEN)
             gui.text('')
-            
+
             if gui.button('Start Game'):
                 self._start_game()
-            
+
             gui.text('')
-            gui.text('Controls:', color=(0.7, 0.7, 0.7))
-            gui.text('LMB - Set target position', color=(0.6, 0.6, 0.6))
-            gui.text('RMB - Move camera', color=(0.6, 0.6, 0.6))
-            gui.text('Z - Attack mode', color=(0.6, 0.6, 0.6))
-            gui.text('X - Spread mode', color=(0.6, 0.6, 0.6))
+            gui.text('Game Rules:', color=TEXT_COLOR_DARK_GRAY)
+            gui.text('1. Control your drones to dominate the map.', color=TEXT_COLOR_LIGHT_GRAY)
+            gui.text('2. Use LMB to set target positions.', color=TEXT_COLOR_LIGHT_GRAY)
+            gui.text('3. Use Z for attack mode and X for spread mode.', color=TEXT_COLOR_LIGHT_GRAY)
+            gui.text('4. Achieve victory by eliminating all enemy drones.', color=TEXT_COLOR_LIGHT_GRAY)
+            gui.text('')
+
+            gui.text('Controls:', color=TEXT_COLOR_DARK_GRAY)
+            gui.text('LMB - Set target position', color=TEXT_COLOR_LIGHT_GRAY)
+            gui.text('RMB - Move camera', color=TEXT_COLOR_LIGHT_GRAY)
+            gui.text('Z - Attack mode', color=TEXT_COLOR_LIGHT_GRAY)
+            gui.text('X - Spread mode', color=TEXT_COLOR_LIGHT_GRAY)
 
     def _start_game(self) -> None:
         self.state = self.STATE_LOADING
@@ -70,26 +82,26 @@ class Window():
         self.loader = self.gui.load()
         threading.Thread(target=self._run_loader, daemon=True).start()
 
-    def render_loading(self) -> None:
+    def _render_loading(self) -> None:
         self.canvas.set_background_color((0, 0, 0))
         with self.window.get_gui().sub_window('Loading', 0.4, 0.45, 0.2, 0.1):
-            self.window.get_gui().text(f"{self.loading_text}{'.' * ((self.loading_frames // 100) % 4)}", color=(1, 1, 1))
+            self.window.get_gui().text(f"{self.loading_text}{'.' * ((self.loading_frames // 100) % 4)}", color=TEXT_COLOR_WHITE)
     
     def _run_loader(self) -> None:
         for text in self.loader:
             self.loading_text = text
         self.state = self.STATE_GAME
 
-    def render_victory(self) -> None:
-        self.canvas.set_background_color((0.0, 0.1, 0.0))
+    def _render_victory(self) -> None:
+        self.canvas.set_background_color(MENU_BACKGROUND_VICTORY_COLOR)
         gui = self.window.get_gui()
         
         with gui.sub_window('Victory', 0.3, 0.3, 0.4, 0.4):
-            gui.text('VICTORY!', color=(0.5, 1.0, 0.5))
+            gui.text('VICTORY!', color=TEXT_VICTORY_COLOR)
             gui.text('')
-            gui.text('You have achieved total domination!', color=(1, 1, 1))
+            gui.text('You have achieved total domination!', color=TEXT_COLOR_WHITE)
             gui.text('')
-            gui.text(f'Drones used: {self.drone_count} per team', color=(0.8, 0.8, 0.8))
+            gui.text(f'Drones used: {self.drone_count} per team', color=TEXT_COLOR_GRAY)
             gui.text('')
             
             if gui.button('Return to Main Menu'):
@@ -98,16 +110,16 @@ class Window():
                 self.state = self.STATE_MENU
                 self.loading_frames = 0
 
-    def render_defeat(self) -> None:
-        self.canvas.set_background_color((0.1, 0.0, 0.0))
+    def _render_defeat(self) -> None:
+        self.canvas.set_background_color(MENU_BACKGROUND_DEFEAT_COLOR)
         gui = self.window.get_gui()
         
         with gui.sub_window('Defeat', 0.3, 0.3, 0.4, 0.4):
-            gui.text('DEFEAT', color=(1.0, 0.3, 0.3))
+            gui.text('DEFEAT', color=TEXT_DEFEAT_COLOR)
             gui.text('')
-            gui.text('Your forces have been eliminated!', color=(1, 1, 1))
+            gui.text('Your forces have been eliminated!', color=TEXT_COLOR_WHITE)
             gui.text('')
-            gui.text(f'Drones used: {self.drone_count} per team', color=(0.8, 0.8, 0.8))
+            gui.text(f'Drones used: {self.drone_count} per team', color=TEXT_COLOR_GRAY)
             gui.text('')
             
             if gui.button('Return to Main Menu'):
@@ -119,17 +131,17 @@ class Window():
     def run(self) -> None:
         while self.window.running:
             if self.state == self.STATE_MENU:
-                self.render_menu()
+                self._render_menu()
                 self.window.show()
             elif self.state == self.STATE_LOADING:
-                self.render_loading()
+                self._render_loading()
                 self.window.show()
                 self.loading_frames += 1
             elif self.state == self.STATE_VICTORY:
-                self.render_victory()
+                self._render_victory()
                 self.window.show()
             elif self.state == self.STATE_DEFEAT:
-                self.render_defeat()
+                self._render_defeat()
                 self.window.show()
             else:
                 if self.gui.return_to_menu:
