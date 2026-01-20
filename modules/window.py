@@ -93,16 +93,15 @@ class Window():
                     self._back_to_main_menu()
                 gui.text('')
                 gui.text('Mission Planning', color=TEXT_COLOR_WHITE)
-                gui.text('')
+                gui.text('Draw a path for drones to follow on the right panel.', color=TEXT_COLOR_LIGHT_GRAY)
                 
+                gui.text('')
                 gui.text('Attacking Team:', color=TEXT_COLOR_GRAY)
                 self.attacking_drone_count = gui.slider_int('Attacking', self.attacking_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
-                gui.text(f'Count: {self.attacking_drone_count}', color=TEXT_COLOR_GREEN)
                 gui.text('')
                 
                 gui.text('Defending Team:', color=TEXT_COLOR_GRAY)
                 self.defending_drone_count = gui.slider_int('Defending', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
-                gui.text(f'Count: {self.defending_drone_count}', color=TEXT_COLOR_GREEN)
                 gui.text('')
 
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
@@ -136,9 +135,9 @@ class Window():
             self.canvas.lines(self.planning_border_field, width=0.005, color=(1, 1, 1))
 
             p_x = min_x + (0.2 * sq_w)
-            p_y = min_y + (0.5 * sq_h)
+            p_y = min_y + (0.1 * sq_h)
             e_x = min_x + (0.8 * sq_w)
-            e_y = min_y + (0.5 * sq_h)
+            e_y = min_y + (0.9 * sq_h)
 
             self.planning_start_pos[0] = [p_x, p_y] # Gracz
             self.planning_start_pos[1] = [e_x, e_y] # Wróg
@@ -155,7 +154,7 @@ class Window():
                     if len(self.path_points) > 0:
                         last_pt = self.path_points[-1]
                         dist_sq = (curr_mouse[0] - last_pt[0])**2 + (curr_mouse[1] - last_pt[1])**2
-                        if dist_sq < 0.0001: 
+                        if dist_sq < 0.001: 
                             should_add = False
                     if should_add:
                         self.path_points.append(curr_mouse)

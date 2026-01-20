@@ -72,14 +72,14 @@ class DroneSwarm:
         for i in range(self.N):
             if self.team == 0:
                 self.pos[i] = ti.Vector([
-                    -ti.random() * self.boundary * 1.5,
+                    -ti.random() * self.boundary,
                     -ti.random() * self.boundary * 1.5,
                     ti.random() * self.boundary * 1.5
                 ])
             else:
                 self.pos[i] = ti.Vector([
-                    ti.random() * self.boundary * 1.5,
-                    ti.random() * self.boundary * 1.5,
+                    ti.random() * self.boundary ,
+                    ti.random() * self.boundary,
                     ti.random() * self.boundary * 1.5
                 ])
             
@@ -105,9 +105,6 @@ class DroneSwarm:
     def get_mode(self) -> DroneModes:   
         return self.mode
 
-    def get_modifiers(self) -> tuple[float, float, float, float]:
-        return (self.separation_modifier[None], self.alignment_modifier[None], self.cohesion_modifier[None], self.target_weight[None])
-    
     @ti.kernel
     def update_statistics(self):
         total_x = 0.0
@@ -154,9 +151,6 @@ class DroneSwarm:
     def get_alive_count(self) -> int:
         return int(self.cached_stats[0])
         
-    def get_swarm_center(self) -> list[float]:
-        return [self.cached_stats[1], self.cached_stats[2], self.cached_stats[3]]
-    
     @ti.func
     def calculate_flocking(self, i: ti.i32, 
                    pos_self: ti.types.vector(3, ti.f32),

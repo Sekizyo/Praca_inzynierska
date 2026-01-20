@@ -53,7 +53,7 @@ class Swarms():
         self.frame_count = 0
 
     def reset(self):
-        self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
+        self.player_target_field[0] = [-self.map_size, -self.map_size, 0.0]
         self.frame_count = 0
         self.player_swarm.reset()
         self.enemy_swarm.reset()
