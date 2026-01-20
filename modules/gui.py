@@ -4,7 +4,7 @@ from taichi.ui.ui import Gui
 from taichi.ui import Camera, LMB, RMB
 from modules.map import Map
 from modules.swarms import Swarms
-from modules.constants import DroneModes
+from modules.constants import DroneModes, GameMode
 from modules.voronoi import VoronoiDiagram
 from modules.gui_utils import GuiState
 from modules.utils import run_every_n_calls
@@ -14,7 +14,7 @@ import time
 class GUI():
     MAP_SIZE: float = 400.0
     
-    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, drone_count: int = 1000) -> None:
+    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, game_mode: GameMode, drone_count_player: int, drone_count_enemy: int) -> None:
         self.gui = gui
         self.window = window
         self.scene = scene
@@ -22,7 +22,8 @@ class GUI():
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
-        self.drone_count: int = drone_count
+        self.drone_count_player: int = drone_count_player
+        self.drone_count_enemy: int = drone_count_enemy
         self.stats_frame_counter: int = 0
         self.return_to_menu: bool = False
         self.victory: bool = False
@@ -31,7 +32,7 @@ class GUI():
         
     def load(self):
         yield "Initializing Swarms"
-        self.swarms: Swarms = Swarms(self.scene, self.drone_count, self.MAP_SIZE)
+        self.swarms: Swarms = Swarms(self.scene, self.drone_count_player, self.drone_count_enemy, self.MAP_SIZE)
         
         yield "Initializing Map"
         self.map = Map(self.scene, self.MAP_SIZE)
