@@ -97,12 +97,12 @@ class Window():
                 gui.text('')
                 
                 gui.text('Attacking Team:', color=TEXT_COLOR_GRAY)
-                self.attacking_drone_count = gui.slider_int('##Attacking', self.attacking_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
+                self.attacking_drone_count = gui.slider_int('Attacking', self.attacking_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
                 gui.text(f'Count: {self.attacking_drone_count}', color=TEXT_COLOR_GREEN)
                 gui.text('')
                 
                 gui.text('Defending Team:', color=TEXT_COLOR_GRAY)
-                self.defending_drone_count = gui.slider_int('##Defending', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
+                self.defending_drone_count = gui.slider_int('Defending', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
                 gui.text(f'Count: {self.defending_drone_count}', color=TEXT_COLOR_GREEN)
                 gui.text('')
 
@@ -116,7 +116,7 @@ class Window():
                     
 
                 gui.text('')
-                if gui.button('ENGAGE (Start Game)'):
+                if gui.button('Start Game'):
                     self._start_game(GameMode.MISSION_PLANNING)
 
             window_shape = self.window.get_window_shape()
@@ -183,7 +183,28 @@ class Window():
         self.state = self.STATE_LOADING
         self.canvas.set_background_color((0, 0, 0))
         
-        self.gui = GUI(self.window.get_gui(), self.window, self.scene, game_mode, self.attacking_drone_count, self.defending_drone_count)
+        world_path_points = []
+        if self.path_points:
+            window_shape = self.window.get_window_shape()
+            aspect_ratio = window_shape[0] / window_shape[1]
+            sq_h = 0.6
+            sq_w = sq_h / aspect_ratio
+            sq_x = 0.45 
+            min_x, min_y = sq_x, 0.2
+            max_x, max_y = sq_x + sq_w, 0.2 + sq_h
+            
+            for pt in self.path_points:
+                norm_x = (pt[0] - min_x) / (max_x - min_x)
+                norm_y = (pt[1] - min_y) / (max_y - min_y)
+                
+                
+                world_x = (norm_x - 0.5) * 2 * self.MAP_SIZE
+                world_y = (norm_y - 0.5) * 2 * self.MAP_SIZE
+                
+                world_path_points.append((world_x, world_y))
+
+        # Przekazujemy przeliczone punkty
+        self.gui = GUI(self.window.get_gui(), self.window, self.scene, game_mode, self.attacking_drone_count, self.defending_drone_count, world_path_points)
         self.loader = self.gui.load()
         threading.Thread(target=self._run_loader, daemon=True).start()
 

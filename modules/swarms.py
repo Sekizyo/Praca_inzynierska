@@ -1,3 +1,4 @@
+import math
 from modules.drone import DroneSwarm
 from modules.colors import *
 import taichi as ti
@@ -20,7 +21,7 @@ class Swarms():
         
     def _init_swarms(self) -> None:
         self.player_target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
-        self.player_target_field[0] = [-self.map_size, 0.0, 0.0]
+        self.player_target_field[0] = [-self.map_size//2, 0.0, 0.0]
         
         self.total_drones = self.drone_count_player + self.drone_count_enemy
         self.total_projectiles = self.total_drones * 2
@@ -34,6 +35,8 @@ class Swarms():
         self.grid_cell_size = 64
         self.grid_padding = 2
         self.max_cell_capacity = 300
+        
+        self.current_waypoint = 0
         
         grid_dim = int(self.map_size * 2 / self.grid_cell_size) + 2 * self.grid_padding
         self.grid_shape = ti.Vector([grid_dim, grid_dim, grid_dim])
@@ -187,7 +190,6 @@ class Swarms():
             self.grid_padding
         )
         
-
     def _draw(self, gui_state: GuiState) -> None:
         if self.frame_count % 10 == 0:
             self.player_swarm.update_statistics()
@@ -220,7 +222,21 @@ class Swarms():
     
     def set_player_target(self, x: float, y: float) -> None:
         self.player_target_field[0] = [x, y, self.map_size * 0.5]
+    
         
+    def player_follow_path(self, path_points: list[tuple[float, float]]) -> None:
+        current_target = path_points[self.current_waypoint]
+        self.set_player_target(current_target[0], current_target[1])
+        
+        swarm_center = self.player_swarm.get_swarm_center()
+        dist = math.sqrt(
+            (swarm_center[0] - current_target[0])**2 +
+            (swarm_center[1] - current_target[1])**2
+        )
+        
+        if dist < 50.0:
+            self.current_waypoint = (self.current_waypoint + 1) % len(path_points)
+            
     def update_logic(self, dt: float, player_territory: float) -> None:
         self._update_logic(dt, player_territory)
         

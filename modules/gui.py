@@ -14,11 +14,13 @@ import time
 class GUI():
     MAP_SIZE: float = 400.0
     
-    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, game_mode: GameMode, drone_count_player: int, drone_count_enemy: int) -> None:
+    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, game_mode: GameMode, drone_count_player: int, drone_count_enemy: int, path_points: list[tuple[float, float]]) -> None:
         self.gui = gui
         self.window = window
         self.scene = scene
         self.GuiState: GuiState = GuiState()
+        self.GameMode: GameMode = game_mode
+        self.path_points = path_points
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
@@ -73,18 +75,20 @@ class GUI():
         self.scene.point_light(pos=(0, 0, self.MAP_SIZE), color=(1, 1, 1))
         
     def _handle_input(self) -> None:
-        if self.window.is_pressed("z"):
-            self.player_swarm.update_mode(DroneModes.ATTACK)
-        elif self.window.is_pressed("x"):
-            self.player_swarm.update_mode(DroneModes.SPREAD)
-        else:
-            pass
+        if self.GameMode == GameMode.RTS:
+            if self.window.is_pressed("z"):
+                self.player_swarm.update_mode(DroneModes.ATTACK)
+            elif self.window.is_pressed("x"):
+                self.player_swarm.update_mode(DroneModes.SPREAD)
+            else:
+                pass
 
-        if self.window.is_pressed(LMB):
-            mouse_pos = self.window.get_cursor_pos()
-            x = (mouse_pos[0] - 0.5) * self.MAP_SIZE * 2.0
-            y = (mouse_pos[1] - 0.5) * self.MAP_SIZE * 2.0
-            self.swarms.set_player_target(x, y)
+            if self.window.is_pressed(LMB):
+                mouse_pos = self.window.get_cursor_pos()
+                x = (mouse_pos[0] - 0.5) * self.MAP_SIZE * 2.0
+                y = (mouse_pos[1] - 0.5) * self.MAP_SIZE * 2.0
+                self.swarms.set_player_target(x, y)
+                
         self._update_camera()
 
     def _update_gui(self) -> None:
@@ -157,8 +161,11 @@ class GUI():
 
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
+            if self.GameMode == GameMode.MISSION_PLANNING:
+                self.swarms.player_follow_path(self.path_points)
             self.swarms.update_logic(self.dt, self.player_territory)
-        
+            
+            
         self._handle_input()
         self._update_gui()
         

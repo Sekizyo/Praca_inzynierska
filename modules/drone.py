@@ -9,7 +9,7 @@ class DroneSwarm:
     max_speed: float = 20.0
     max_force: float = 0.5
     perception_radius: float = 40.0
-    mode: DroneModes = DroneModes.SPREAD
+    mode: DroneModes = DroneModes.ATTACK
     projectile_speed: float = 50.0
     shoot_range: float = 50.0
     shoot_cooldown: float = 2.0
