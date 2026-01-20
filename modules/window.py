@@ -34,6 +34,7 @@ class Window():
         self.selected_preset: int = 1
         self.attacking_drone_count: int = self.DRONE_PRESETS[1]
         self.defending_drone_count: int = self.DRONE_PRESETS[1]
+        self.path_points: list[tuple[float, float]] = []
 
     def _render_menu(self) -> None:
         self.canvas.set_background_color(MENU_BACKGROUND_COLOR)
@@ -87,8 +88,6 @@ class Window():
                 self.planning_start_pos = ti.Vector.field(2, dtype=ti.f32, shape=2)
                 self.planning_start_col = ti.Vector.field(3, dtype=ti.f32, shape=2)
                 
-                self.path_points: list[tuple[float, float]] = []
-
             with gui.sub_window('Mission Control', 0.05, 0.2, 0.3, 0.6):
                 if gui.button('Return to Main Menu'):
                     self._back_to_main_menu()
@@ -156,11 +155,11 @@ class Window():
                     if len(self.path_points) > 0:
                         last_pt = self.path_points[-1]
                         dist_sq = (curr_mouse[0] - last_pt[0])**2 + (curr_mouse[1] - last_pt[1])**2
-                        if dist_sq < 0.00005: 
+                        if dist_sq < 0.0001: 
                             should_add = False
                     if should_add:
                         self.path_points.append(curr_mouse)
-            # 6. Rysowanie ścieżki
+                        
             path_len = len(self.path_points)
             if path_len > 1:
                 max_segments = 1000

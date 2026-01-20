@@ -227,6 +227,7 @@ class Swarms():
     def player_follow_path(self, path_points: list[tuple[float, float]]) -> None:
         current_target = path_points[self.current_waypoint]
         self.set_player_target(current_target[0], current_target[1])
+        self.player_swarm.target_weight[None] = 4
         
         swarm_center = self.player_swarm.get_swarm_center()
         dist = math.sqrt(

@@ -253,7 +253,7 @@ class DroneSwarm:
     def _update_mode(self, mode: ti.i32):
         
         if mode == 0:
-            self.separation_modifier[None] = 3.5
+            self.separation_modifier[None] = 2
             self.alignment_modifier[None] = 2
             self.cohesion_modifier[None] = 1.5
             self.target_weight[None] = 2
