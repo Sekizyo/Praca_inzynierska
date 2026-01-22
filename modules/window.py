@@ -172,7 +172,8 @@ class Window():
                 self.canvas.lines(self.planning_path_field, width=0.003, color=(0, 1, 0))
                 
     def _back_to_main_menu(self) -> None:
-        self.gui.GuiState.PAUSED = True
+        if self.gui:
+            self.gui.GuiState.PAUSED = True
         self.loader = None
         self.state = self.STATE_MENU
         self.loading_frames = 0
