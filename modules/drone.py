@@ -18,6 +18,7 @@ class DroneSwarm:
     projectile_damage: float = 25.0
     projectile_max_lifetime: float = 1.0
     projectile_radius: float = 0.5
+    fov_cosine: float = 0.0 
 
     def __init__(self, count: int, boundary_size: float, team: int = 0) -> None:
         self.N: int = count
@@ -378,6 +379,7 @@ class DroneSwarm:
         hit_radius_sq = self.hit_radius * self.hit_radius
         boundary_val = self.boundary
         projectile_speed_val = self.projectile_speed
+        fov_cosine_val = self.fov_cosine
         
         # Shooting phase 
         for i in range(self.N):
@@ -389,6 +391,9 @@ class DroneSwarm:
             
             # Grid lookup for shooting
             local_pos_i = self.pos[i]
+            local_vel_i = self.vel[i]
+            vel_sq = local_vel_i.norm_sqr()
+            
             pos_i = local_pos_i + grid_offset
             base_x = int(pos_i.x / grid_cell_size) + grid_padding
             base_y = int(pos_i.y / grid_cell_size) + grid_padding
@@ -406,12 +411,21 @@ class DroneSwarm:
                         
                         for k in range(limit):
                             j = grid_buckets[gx, gy, gz, k]
-                            diff = local_pos_i - enemy_pos[j]
-                            dist_sq = diff.norm_sqr()
+                            
+                            vec_to_enemy = enemy_pos[j] - local_pos_i
+                            dist_sq = vec_to_enemy.norm_sqr()
                             
                             if dist_sq < shoot_range_sq and dist_sq < min_dist_sq:
-                                min_dist_sq = dist_sq
-                                target_idx = j
+                                is_in_fov = True
+                                if vel_sq > 0.1:
+                                    dot_prod = local_vel_i.dot(vec_to_enemy)
+                                    denom = ti.sqrt(vel_sq * dist_sq)
+                                    if dot_prod < fov_cosine_val * denom:
+                                        is_in_fov = False
+                                
+                                if is_in_fov:
+                                    min_dist_sq = dist_sq
+                                    target_idx = j
             
             if target_idx >= 0 and self.projectile_free_count[None] > 0:
                 free_idx = ti.atomic_sub(self.projectile_free_count[None], 1) - 1
@@ -503,4 +517,4 @@ class DroneSwarm:
         return self.projectile_pos
     
     def get_projectile_active_field(self) -> Field:
-        return self.projectile_active    
+        return self.projectile_active

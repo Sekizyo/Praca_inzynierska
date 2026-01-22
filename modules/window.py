@@ -104,7 +104,7 @@ class Window():
             if gui.button('Real-Time Mode'):
                 self._start_game(GameMode.RTS)
                 
-            if gui.button('Pre-Planned Mode'):
+            if gui.button('Mission Planning Mode'):
                 self.state = self.STATE_PLANNING
                 
             gui.text('')
@@ -131,7 +131,7 @@ class Window():
                 self.planning_start_pos = ti.Vector.field(2, dtype=ti.f32, shape=2)
                 self.planning_start_col = ti.Vector.field(3, dtype=ti.f32, shape=2)
                 
-            with gui.sub_window('Mission Control', 0.05, 0.2, 0.3, 0.6):
+            with gui.sub_window('Mission Planning', 0.05, 0.2, 0.3, 0.6):
                 if gui.button('Return to Main Menu'):
                     self._back_to_main_menu()
                 gui.text('')
@@ -140,11 +140,11 @@ class Window():
                 
                 gui.text('')
                 gui.text('Attacking Team:', color=TEXT_COLOR_GRAY)
-                self.attacking_drone_count = gui.slider_int('Attacking', self.attacking_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
+                self.attacking_drone_count = gui.slider_int('', self.attacking_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
                 gui.text('')
                 
                 gui.text('Defending Team:', color=TEXT_COLOR_GRAY)
-                self.defending_drone_count = gui.slider_int('Defending', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
+                self.defending_drone_count = gui.slider_int('', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
                 gui.text('')
 
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
@@ -154,7 +154,6 @@ class Window():
                 if gui.button('Clear Path'):
                     self.path_points = []
                     self.planning_path_field.fill(0)
-                    
 
                 gui.text('')
                 if gui.button('Start Game'):
