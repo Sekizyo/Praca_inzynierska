@@ -1,5 +1,6 @@
 import taichi as ti
 import threading
+import multiprocessing 
 from typing import Optional
 from taichi.ui.canvas import SceneV2
 from taichi.ui.window import Window as TWindow
@@ -7,6 +8,48 @@ from taichi.ui import LMB, Canvas
 from modules.gui import GUI
 from modules.colors import *
 from modules.constants import GameMode
+import matplotlib.pyplot as plt
+
+def run_plot_process(history: dict):
+    try:
+        plt.style.use('dark_background')
+        
+        fig, axs = plt.subplots(2, 2, figsize=(14, 10))
+        fig.canvas.manager.set_window_title('Mission Analysis')
+        
+        axs[0, 0].plot(history['time'], history['player_count'], label='Player', color='green')
+        axs[0, 0].plot(history['time'], history['enemy_count'], label='Enemy', color='red')
+        axs[0, 0].set_title('Drone Population')
+        axs[0, 0].set_ylabel('Count')
+        axs[0, 0].legend()
+        axs[0, 0].grid(True, alpha=0.3)
+        
+        axs[0, 1].plot(history['time'], history['territory'], label='Player Control', color='cyan')
+        axs[0, 1].fill_between(history['time'], history['territory'], alpha=0.2, color='cyan')
+        axs[0, 1].axhline(y=50, color='gray', linestyle='--', alpha=0.5)
+        axs[0, 1].set_title('Territory Control (%)')
+        axs[0, 1].set_ylim(0, 100)
+        axs[0, 1].grid(True, alpha=0.3)
+        
+        axs[1, 0].plot(history['time'], history['damage_p'], label='Player Dmg', color='lightgreen')
+        axs[1, 0].plot(history['time'], history['damage_e'], label='Enemy Dmg', color='salmon')
+        axs[1, 0].set_title('Total Damage Dealt (Cumulative)')
+        axs[1, 0].set_ylabel('Damage')
+        axs[1, 0].legend()
+        axs[1, 0].grid(True, alpha=0.3)
+        
+        if 'kd_ratio' in history:
+            axs[1, 1].plot(history['time'], history['kd_ratio'], label='Player K/D', color='gold')
+            axs[1, 1].axhline(y=1.0, color='white', linestyle='--', label='Even (1.0)')
+            axs[1, 1].set_title('Kill / Death Ratio')
+            axs[1, 1].set_xlabel('Time (s)')
+            axs[1, 1].legend()
+            axs[1, 1].grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        plt.show()
+    except Exception as e:
+        print(f"Error in plotting process: {e}")
 
 class Window():
     MAP_SIZE: float = 250.0
@@ -217,6 +260,17 @@ class Window():
             self.loading_text = text
         self.state = self.STATE_GAME
 
+    def _show_mission_analysis(self) -> None:
+        if not self.gui or not hasattr(self.gui, 'stats_history'):
+            return
+            
+        history = self.gui.stats_history
+        if not history['time']:
+            return
+
+        p = multiprocessing.Process(target=run_plot_process, args=(history,))
+        p.start()
+
     def _render_victory(self) -> None:
         self.canvas.set_background_color(MENU_BACKGROUND_VICTORY_COLOR)
         gui = self.window.get_gui()
@@ -226,6 +280,11 @@ class Window():
             gui.text('')
             gui.text('You have achieved total domination!', color=TEXT_COLOR_WHITE)
             gui.text('')
+            
+            if self.gui and self.gui.GameMode == GameMode.MISSION_PLANNING:
+                if gui.button('Show Mission Analysis'):
+                    self._show_mission_analysis()
+                gui.text('')
             
             if gui.button('Return to Main Menu'):
                 self._back_to_main_menu()
@@ -239,6 +298,11 @@ class Window():
             gui.text('')
             gui.text('Your forces have been eliminated!', color=TEXT_COLOR_WHITE)
             gui.text('')
+            
+            if self.gui and self.gui.GameMode == GameMode.MISSION_PLANNING:
+                if gui.button('Show Mission Analysis'):
+                    self._show_mission_analysis()
+                gui.text('')
             
             if gui.button('Return to Main Menu'):
                 self._back_to_main_menu()

@@ -55,6 +55,9 @@ class DroneSwarm:
         self.stats = ti.field(dtype=ti.f32, shape=4)
         self.cached_stats = [0.0, 0.0, 0.0, 0.0]
         
+        self.total_damage = ti.field(dtype=ti.f32, shape=())
+        self.death_count = ti.field(dtype=ti.i32, shape=())
+        
         self._initialize()
 
 
@@ -67,6 +70,8 @@ class DroneSwarm:
         self.alignment_modifier[None] = 0.1
         self.cohesion_modifier[None] = 0.1
         self.target_weight[None] = 0.5
+        self.total_damage[None] = 0.0
+        self.death_count[None] = 0
         
         
         for i in range(self.N):
@@ -191,21 +196,21 @@ class DroneSwarm:
                 j = grid_buckets[gx, gy, gz, k]
                 
                 if i != j:
-                        diff = pos_self - self.pos[j]
-                        dist_sq = diff.norm_sqr()
+                    diff = pos_self - self.pos[j]
+                    dist_sq = diff.norm_sqr()
+                    
+                    # Separation
+                    if dist_sq < rad_sep_sq and dist_sq > 1e-6:
+                        steer_sep += diff / dist_sq
+                        count_sep += 1
+                    
+                    # Alignment & Cohesion share same radius
+                    if dist_sq < rad_ali_sq:
+                        steer_ali += self.vel[j]
+                        count_ali += 1
                         
-                        # Separation
-                        if dist_sq < rad_sep_sq and dist_sq > 1e-6:
-                            steer_sep += diff / dist_sq
-                            count_sep += 1
-                        
-                        # Alignment & Cohesion share same radius
-                        if dist_sq < rad_ali_sq:
-                            steer_ali += self.vel[j]
-                            count_ali += 1
-                            
-                            steer_coh += self.pos[j]
-                            count_coh += 1
+                        steer_coh += self.pos[j]
+                        count_coh += 1
 
         # Post-process Separation
         if count_sep > 0:
@@ -352,11 +357,10 @@ class DroneSwarm:
             if cooldown_val > 0.0:
                 self.cooldown[i][0] = cooldown_val - dt
             
-            # Health check
             if self.health[i][0] <= 0.0:
                 self.active[i] = 0
                 self.pos[i] = ti.Vector([-10000.0, 0.0, 0.0])
-
+                ti.atomic_add(self.death_count[None], 1)
     
     @ti.kernel
     def batched_combat_update(self, dt: ti.f32, 
@@ -483,6 +487,7 @@ class DroneSwarm:
                                         self.projectile_active[i] = 0
                                         self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
                                         ti.atomic_add(enemy_health[j][0], -self.projectile_damage)
+                                        ti.atomic_add(self.total_damage[None], self.projectile_damage)
                                         free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
                                         self.projectile_free_list[free_idx] = i
                                         hit_detected = 1

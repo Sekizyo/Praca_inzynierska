@@ -32,6 +32,17 @@ class GUI():
         self.defeat: bool = False
         self.player_territory = 50.0
         
+        self.start_time: float = 0.0
+        self.stats_history = {
+            "time": [],
+            "player_count": [],
+            "enemy_count": [],
+            "territory": [],
+            "damage_p": [], 
+            "damage_e": [], 
+            "kd_ratio": []  
+        }
+        
     def load(self):
         yield "Initializing Swarms"
         self.swarms: Swarms = Swarms(self.scene, self.drone_count_player, self.drone_count_enemy, self.MAP_SIZE)
@@ -61,6 +72,9 @@ class GUI():
         self.victory = False
         self.defeat = False
         self.GuiState.PAUSED = False
+        
+        self.start_time = time.time()
+        self.stats_history = {"time": [], "player_count": [], "enemy_count": [], "territory": [], "damage_p": [], "damage_e": [], "kd_ratio": []}
         
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()
@@ -111,6 +125,26 @@ class GUI():
                 self.voronoi.pull_stats()
                 self.player_territory = self.voronoi.get_territory_ratio()
                 self.stats_frame_counter = 0
+                
+                if not self.GuiState.PAUSED and not self.victory and not self.defeat:
+                    current_t = time.time() - self.start_time
+                    p_count = self.player_swarm.get_alive_count()
+                    e_count = self.enemy_swarm.get_alive_count()
+                    
+                    p_dmg = self.player_swarm.total_damage[None]
+                    e_dmg = self.enemy_swarm.total_damage[None]
+                    p_deaths = self.player_swarm.death_count[None]
+                    e_deaths = self.enemy_swarm.death_count[None]
+                    
+                    kd = e_deaths / max(1, p_deaths)
+                    
+                    self.stats_history["time"].append(current_t)
+                    self.stats_history["player_count"].append(p_count)
+                    self.stats_history["enemy_count"].append(e_count)
+                    self.stats_history["territory"].append(self.player_territory)
+                    self.stats_history["damage_p"].append(p_dmg)
+                    self.stats_history["damage_e"].append(e_dmg)
+                    self.stats_history["kd_ratio"].append(kd)
 
             player_count = self.player_swarm.get_alive_count()
             enemy_count = self.enemy_swarm.get_alive_count()
