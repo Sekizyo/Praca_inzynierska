@@ -157,10 +157,10 @@ class GUI():
             else:
                 domination = 0.5
             
-            if domination >= 0.97:
+            if domination >= 0.95:
                 self.victory = True
             
-            if domination <= 0.1:
+            if domination <= 0.05:
                 self.defeat = True
             
             self.gui.text(f"Win percentage: {domination*100:.1f}%")

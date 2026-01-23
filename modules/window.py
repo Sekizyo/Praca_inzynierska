@@ -139,12 +139,10 @@ class Window():
                 gui.text('Draw a path for drones to follow on the right panel.', color=TEXT_COLOR_LIGHT_GRAY)
                 
                 gui.text('')
-                gui.text('Attacking Team:', color=TEXT_COLOR_GRAY)
-                self.attacking_drone_count = gui.slider_int('', self.attacking_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
+                self.attacking_drone_count = gui.slider_int('Attacking Team', self.attacking_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
                 gui.text('')
                 
-                gui.text('Defending Team:', color=TEXT_COLOR_GRAY)
-                self.defending_drone_count = gui.slider_int('', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
+                self.defending_drone_count = gui.slider_int('Defending Team', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
                 gui.text('')
 
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
