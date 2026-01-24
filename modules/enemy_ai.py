@@ -3,25 +3,19 @@ import math
 from modules.constants import DroneModes
 from modules.drone import DroneSwarm
 from modules.utils import run_every_n_calls
+from modules.gui_utils import EnemyAIParams
 
 @ti.data_oriented
 class EnemyAI:
-    def __init__(self, enemy_swarm: DroneSwarm, map_size: float):
+    def __init__(self, enemy_swarm: DroneSwarm, map_size: float, params: EnemyAIParams) -> None:
         self.swarm = enemy_swarm
         self.map_size = map_size
         self.state = DroneModes.PATROL
         
-        self.engage_distance = 300.0
+        self.engage_distance =  params.engage_distance
+        self.agression_threshold = params.agression_threshold
+        self.patrol_waypoints = params.patrol_waypoints
         
-        patrol_radius = map_size * 0.5
-        patrol_height = map_size * 0.5
-        
-        self.patrol_waypoints = [
-            [patrol_radius, patrol_radius, patrol_height],
-            [-patrol_radius, patrol_radius, patrol_height],
-            [-patrol_radius, -patrol_radius, patrol_height],
-            [patrol_radius, -patrol_radius, patrol_height],
-        ]
         self.current_waypoint = 0
         
         self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
@@ -49,11 +43,12 @@ class EnemyAI:
         distance_to_player = self._get_distance_to_player(player_swarm)
         
         agression: float = round(player_territory / 100, 2)
+        new_state = self.state
         if distance_to_player > self.engage_distance:
             new_state = DroneModes.PATROL
-        elif agression < 0.6:
+        elif agression > self.agression_threshold:
             new_state = DroneModes.SPREAD
-        elif distance_to_player < self.engage_distance or agression >= 0.6:
+        elif distance_to_player < self.engage_distance or agression <= self.agression_threshold:
             new_state = DroneModes.ATTACK
         
         if self.state != new_state:

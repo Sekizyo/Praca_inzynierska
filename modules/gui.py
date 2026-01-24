@@ -6,21 +6,19 @@ from modules.map import Map
 from modules.swarms import Swarms
 from modules.constants import DroneModes, GameMode
 from modules.voronoi import VoronoiDiagram
-from modules.gui_utils import GuiState
+from modules.gui_utils import GuiState, EnemyAIParams
 from modules.utils import run_every_n_calls
-import taichi as ti
 import time
 
 class GUI():
-    MAP_SIZE: float = 400.0
-    
-    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, game_mode: GameMode, drone_count_player: int, drone_count_enemy: int, path_points: list[tuple[float, float]]) -> None:
+    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, map_size: float, game_mode: GameMode, drone_count_player: int, drone_count_enemy: int, path_points: list[tuple[float, float]], enemy_ai_params) -> None:
         self.gui = gui
         self.window = window
         self.scene = scene
         self.GuiState: GuiState = GuiState()
         self.GameMode: GameMode = game_mode
         self.path_points = path_points
+        self.MAP_SIZE: float = map_size
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
@@ -31,7 +29,7 @@ class GUI():
         self.victory: bool = False
         self.defeat: bool = False
         self.player_territory = 50.0
-        
+        self.enemy_ai_params: EnemyAIParams = enemy_ai_params
         self.start_time: float = 0.0
         self.stats_history = {
             "time": [],
@@ -45,7 +43,7 @@ class GUI():
         
     def load(self):
         yield "Initializing Swarms"
-        self.swarms: Swarms = Swarms(self.scene, self.drone_count_player, self.drone_count_enemy, self.MAP_SIZE)
+        self.swarms: Swarms = Swarms(self.scene, self.drone_count_player, self.drone_count_enemy, self.MAP_SIZE, self.enemy_ai_params)
         
         yield "Initializing Map"
         self.map = Map(self.scene, self.MAP_SIZE)
@@ -62,20 +60,8 @@ class GUI():
         self.enemy_ai = self.swarms.get_enemy_ai()
         
         yield "Finalizing"
-
-    def reset(self):
-        self.swarms.reset()
-        self.voronoi.reset()
-        self._init_camera()
-        self.player_territory = 50.0
-        self.return_to_menu = False
-        self.victory = False
-        self.defeat = False
-        self.GuiState.PAUSED = False
-        
         self.start_time = time.time()
-        self.stats_history = {"time": [], "player_count": [], "enemy_count": [], "territory": [], "damage_p": [], "damage_e": [], "kd_ratio": []}
-        
+
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()
         self.camera.position(0, 0, 500)
@@ -153,7 +139,7 @@ class GUI():
             if total_drones > 0:
                 drone_ratio = player_count / total_drones
                 territory_ratio = self.player_territory / 100.0
-                domination = (drone_ratio * 0.7 + territory_ratio * 0.3)
+                domination = (drone_ratio * 0.8 + territory_ratio * 0.2)
             else:
                 domination = 0.5
             

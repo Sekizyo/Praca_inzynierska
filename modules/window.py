@@ -9,6 +9,7 @@ from modules.gui import GUI
 from modules.colors import *
 from modules.constants import GameMode
 import matplotlib.pyplot as plt
+from modules.gui_utils import EnemyAIParams
 
 def run_plot_process(history: dict):
     try:
@@ -49,8 +50,8 @@ def run_plot_process(history: dict):
         plt.tight_layout()
         plt.show()
     except Exception as e:
-        print(f"Error in plotting process: {e}")
-
+        raise 
+    
 class Window():
     MAP_SIZE: float = 250.0
     DRONE_PRESETS: list[int] = [500, 1000, 2000, 4000, 8000]
@@ -69,7 +70,6 @@ class Window():
         self.gui: Optional[GUI] = None
         self.loader = None
         
-        
         self.state: int = self.STATE_MENU
         self.loading_text: str = 'Starting'
         self.loading_frames: int = 0
@@ -77,6 +77,8 @@ class Window():
         self.selected_preset: int = 1
         self.attacking_drone_count: int = self.DRONE_PRESETS[1]
         self.defending_drone_count: int = self.DRONE_PRESETS[1]
+        self.defending_aggression: float = 0.6
+        self.defending_engage_distance: int = 300
         self.path_points: list[tuple[float, float]] = []
 
     def _render_menu(self) -> None:
@@ -102,7 +104,8 @@ class Window():
             gui.text('')
 
             if gui.button('Real-Time Mode'):
-                self._start_game(GameMode.RTS)
+                enemy_ai_params = EnemyAIParams(self.MAP_SIZE)
+                self._start_game(GameMode.RTS, enemy_ai_params=enemy_ai_params)
                 
             if gui.button('Mission Planning Mode'):
                 self.state = self.STATE_PLANNING
@@ -121,6 +124,14 @@ class Window():
             gui.text('Z - Attack mode', color=TEXT_COLOR_LIGHT_GRAY)
             gui.text('X - Spread mode', color=TEXT_COLOR_LIGHT_GRAY)
             
+    def _reset_planning_fields(self) -> None:
+        self.path_points = []
+        self.planning_path_field.fill(0)
+        self.attacking_drone_count = self.DRONE_PRESETS[1]
+        self.defending_drone_count = self.DRONE_PRESETS[1]
+        self.defending_aggression = 0.6
+        self.defending_engage_distance  = 300
+            
     def _render_planning_menu(self) -> None:
             self.canvas.set_background_color(MENU_BACKGROUND_COLOR)
             gui = self.window.get_gui()
@@ -132,8 +143,8 @@ class Window():
                 self.planning_start_col = ti.Vector.field(3, dtype=ti.f32, shape=2)
                 
             with gui.sub_window('Mission Planning', 0.05, 0.2, 0.3, 0.6):
-                if gui.button('Return to Main Menu'):
-                    self._back_to_main_menu()
+                if gui.button('Return to Main Menu'): self._back_to_main_menu()
+                    
                 gui.text('')
                 gui.text('Mission Planning', color=TEXT_COLOR_WHITE)
                 gui.text('Draw a path for drones to follow on the right panel.', color=TEXT_COLOR_LIGHT_GRAY)
@@ -144,18 +155,28 @@ class Window():
                 
                 self.defending_drone_count = gui.slider_int('Defending Team', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
                 gui.text('')
-
+                
+                self.defending_aggression = gui.slider_float('Defending Team Aggression', self.defending_aggression, 0, 1.0)
+                gui.text('')
+                self.defending_engage_distance = gui.slider_int('Defending Team Engage Distance', self.defending_engage_distance, 50, 1000)
+                
+                gui.text('')
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
                 gui.text('Green: Player Start', color=TEXT_COLOR_GREEN)
                 gui.text('Red: Enemy Start', color=TEXT_DEFEAT_COLOR)
 
-                if gui.button('Clear Path'):
-                    self.path_points = []
-                    self.planning_path_field.fill(0)
-
+                if gui.button('Reset'): self._reset_planning_fields()
+                    
                 gui.text('')
                 if gui.button('Start Game'):
-                    self._start_game(GameMode.MISSION_PLANNING)
+                    enemy_ai_params = EnemyAIParams(self.MAP_SIZE)
+                    enemy_ai_params.set_params(
+                        engage_distance=self.defending_engage_distance,
+                        agression_threshold=self.defending_aggression,
+                        patrol_waypoints=None
+                    )
+                    
+                    self._start_game(GameMode.MISSION_PLANNING, enemy_ai_params=enemy_ai_params)
 
             window_shape = self.window.get_window_shape()
             aspect_ratio = window_shape[0] / window_shape[1]
@@ -218,7 +239,7 @@ class Window():
         self.state = self.STATE_MENU
         self.loading_frames = 0
 
-    def _start_game(self, game_mode: GameMode) -> None:
+    def _start_game(self, game_mode: GameMode, enemy_ai_params: EnemyAIParams) -> None:
         self.state = self.STATE_LOADING
         self.canvas.set_background_color((0, 0, 0))
         
@@ -242,8 +263,7 @@ class Window():
                 
                 world_path_points.append((world_x, world_y))
 
-        # Przekazujemy przeliczone punkty
-        self.gui = GUI(self.window.get_gui(), self.window, self.scene, game_mode, self.attacking_drone_count, self.defending_drone_count, world_path_points)
+        self.gui = GUI(self.window.get_gui(), self.window, self.scene, self.MAP_SIZE, game_mode, self.attacking_drone_count, self.defending_drone_count, world_path_points, enemy_ai_params)
         self.loader = self.gui.load()
         threading.Thread(target=self._run_loader, daemon=True).start()
 
