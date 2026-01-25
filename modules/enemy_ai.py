@@ -11,15 +11,16 @@ class EnemyAI:
         self.swarm = enemy_swarm
         self.map_size = map_size
         self.state = DroneModes.PATROL
+        self.update_params(params)
         
+        self.current_waypoint = 0
+        self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
+        self.target_field[0] = self.patrol_waypoints[0]
+        
+    def update_params(self, params: EnemyAIParams) -> None:
         self.engage_distance =  params.engage_distance
         self.agression_threshold = params.agression_threshold
         self.patrol_waypoints = params.patrol_waypoints
-        
-        self.current_waypoint = 0
-        
-        self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
-        self.target_field[0] = self.patrol_waypoints[0]
     
     def get_target_field(self):
         return self.target_field

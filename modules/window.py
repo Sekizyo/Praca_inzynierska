@@ -9,7 +9,8 @@ from modules.gui import GUI
 from modules.colors import *
 from modules.constants import GameMode
 import matplotlib.pyplot as plt
-from modules.gui_utils import EnemyAIParams
+from modules.gui_utils import EnemyAIParams, GamePresets
+
 
 def run_plot_process(history: dict):
     try:
@@ -63,12 +64,13 @@ class Window():
     STATE_PLANNING: int = 5
     
     def __init__(self, title="Drone Voronoi Sim", size=(1920, 1000)) -> None:
-        ti.init(arch=ti.vulkan, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, kernel_profiler=False, advanced_optimization=True, fast_math=True)        
+        ti.init(arch=ti.vulkan, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, offline_cache_file_path="ticache", offline_cache_cleaning_policy="lru", kernel_profiler=False, fast_math=True, debug=False)        
         self.window: TWindow = TWindow(title, size, pos=(0,30), show_window=True, vsync=False)
         self.canvas: Canvas = self.window.get_canvas()
         self.scene: SceneV2 = self.window.get_scene()
         self.gui: Optional[GUI] = None
         self.loader = None
+        self.gamePreset: Optional[GamePresets] = None
         
         self.state: int = self.STATE_MENU
         self.loading_text: str = 'Starting'
@@ -168,15 +170,19 @@ class Window():
                 if gui.button('Reset'): self._reset_planning_fields()
                     
                 gui.text('')
+                if self.path_points == []:
+                    gui.text('Please draw a path before starting the game.', color=TEXT_DEFEAT_COLOR)
+                
                 if gui.button('Start Game'):
-                    enemy_ai_params = EnemyAIParams(self.MAP_SIZE)
-                    enemy_ai_params.set_params(
-                        engage_distance=self.defending_engage_distance,
-                        agression_threshold=self.defending_aggression,
-                        patrol_waypoints=None
-                    )
-                    
-                    self._start_game(GameMode.MISSION_PLANNING, enemy_ai_params=enemy_ai_params)
+                    if self.path_points != []:
+                        enemy_ai_params = EnemyAIParams(self.MAP_SIZE)
+                        enemy_ai_params.set_params(
+                            engage_distance=self.defending_engage_distance,
+                            agression_threshold=self.defending_aggression,
+                            patrol_waypoints=None
+                        )
+                        
+                        self._start_game(GameMode.MISSION_PLANNING, enemy_ai_params=enemy_ai_params)
 
             window_shape = self.window.get_window_shape()
             aspect_ratio = window_shape[0] / window_shape[1]
@@ -262,10 +268,25 @@ class Window():
                 world_y = (norm_y - 0.5) * 2 * self.MAP_SIZE
                 
                 world_path_points.append((world_x, world_y))
-
-        self.gui = GUI(self.window.get_gui(), self.window, self.scene, self.MAP_SIZE, game_mode, self.attacking_drone_count, self.defending_drone_count, world_path_points, enemy_ai_params)
-        self.loader = self.gui.load()
-        threading.Thread(target=self._run_loader, daemon=True).start()
+                
+        gamePreset: GamePresets = GamePresets(
+            map_size=self.MAP_SIZE,
+            game_mode=game_mode,
+            attacking_drone_count=self.attacking_drone_count,
+            defending_drone_count=self.defending_drone_count,
+            path_points=world_path_points,
+            enemy_ai_params=enemy_ai_params
+        )
+        
+        if self.gui and self.gamePreset and gamePreset.compare(self.gamePreset):
+            self.gui.reset(gamePreset)
+            self.state = self.STATE_GAME
+        else:
+            self.gui = GUI(self.window.get_gui(), self.window, self.scene, gamePreset)
+            self.gamePreset = gamePreset
+            self.loader = self.gui.load()
+            threading.Thread(target=self._run_loader, daemon=True).start()
+            
 
     def _render_loading(self) -> None:
         self.canvas.set_background_color((0, 0, 0))

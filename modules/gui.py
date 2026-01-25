@@ -6,30 +6,30 @@ from modules.map import Map
 from modules.swarms import Swarms
 from modules.constants import DroneModes, GameMode
 from modules.voronoi import VoronoiDiagram
-from modules.gui_utils import GuiState, EnemyAIParams
+from modules.gui_utils import GuiState, EnemyAIParams, GamePresets
 from modules.utils import run_every_n_calls
 import time
 
 class GUI():
-    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, map_size: float, game_mode: GameMode, drone_count_player: int, drone_count_enemy: int, path_points: list[tuple[float, float]], enemy_ai_params) -> None:
+    def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, gamePreset: GamePresets) -> None:
         self.gui = gui
         self.window = window
         self.scene = scene
         self.GuiState: GuiState = GuiState()
-        self.GameMode: GameMode = game_mode
-        self.path_points = path_points
-        self.MAP_SIZE: float = map_size
+        self.GameMode: GameMode = gamePreset.game_mode
+        self.path_points = gamePreset.path_points
+        self.MAP_SIZE: float = gamePreset.map_size
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
-        self.drone_count_player: int = drone_count_player
-        self.drone_count_enemy: int = drone_count_enemy
+        self.drone_count_player: int = gamePreset.attacking_drone_count
+        self.drone_count_enemy: int = gamePreset.defending_drone_count
         self.stats_frame_counter: int = 0
         self.return_to_menu: bool = False
         self.victory: bool = False
         self.defeat: bool = False
         self.player_territory = 50.0
-        self.enemy_ai_params: EnemyAIParams = enemy_ai_params
+        self.enemy_ai_params: EnemyAIParams = gamePreset.enemy_ai_params
         self.start_time: float = 0.0
         self.stats_history = {
             "time": [],
@@ -60,6 +60,27 @@ class GUI():
         self.enemy_ai = self.swarms.get_enemy_ai()
         
         yield "Finalizing"
+        self.start_time = time.time()
+        
+    def reset(self, gamePreset: GamePresets) -> None:
+        self.GuiState = GuiState()
+        self.return_to_menu = False
+        self.victory = False
+        self.defeat = False
+        self.player_territory = 50.0
+        self.stats_frame_counter = 0
+        self.stats_history = {
+            "time": [],
+            "player_count": [],
+            "enemy_count": [],
+            "territory": [],
+            "damage_p": [], 
+            "damage_e": [], 
+            "kd_ratio": []  
+        }
+        self.path_points = gamePreset.path_points
+        self.swarms.reset(gamePreset.enemy_ai_params)
+        self.voronoi.reset()
         self.start_time = time.time()
 
     def _init_camera(self) -> None:
