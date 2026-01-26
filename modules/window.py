@@ -159,8 +159,6 @@ class Window():
                 gui.text('')
                 
                 self.defending_aggression = gui.slider_float('Defending Team Aggression', self.defending_aggression, 0, 1.0)
-                gui.text('')
-                self.defending_engage_distance = gui.slider_int('Defending Team Engage Distance', self.defending_engage_distance, 50, 1000)
                 
                 gui.text('')
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
@@ -177,7 +175,7 @@ class Window():
                     if self.path_points != []:
                         enemy_ai_params = EnemyAIParams(self.MAP_SIZE)
                         enemy_ai_params.set_params(
-                            engage_distance=self.defending_engage_distance,
+                            engage_distance=None,
                             agression_threshold=self.defending_aggression,
                             patrol_waypoints=None
                         )
