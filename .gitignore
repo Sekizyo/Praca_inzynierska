@@ -17,3 +17,8 @@ dist/
 *.pdf
 temp.py
 ticache/
+include/
+lib/
+lib64/
+lib64
+config/

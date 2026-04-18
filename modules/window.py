@@ -10,7 +10,7 @@ from modules.colors import *
 from modules.constants import GameMode
 import matplotlib.pyplot as plt
 from modules.gui_utils import EnemyAIParams, GamePresets
-
+from modules.loader import FileManager
 
 def run_plot_process(history: dict):
     try:
@@ -166,6 +166,8 @@ class Window():
                 gui.text('Red: Enemy Start', color=TEXT_DEFEAT_COLOR)
 
                 if gui.button('Reset'): self._reset_planning_fields()
+                if gui.button('Generate Scenario File'): FileManager().create_config(GamePresets().generate_config_dict())
+                if gui.button('Load Scenario'): self._reset_planning_fields()
                     
                 gui.text('')
                 if self.path_points == []:
