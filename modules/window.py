@@ -144,7 +144,9 @@ class Window():
                     
                 gui.text('')
                 if self.gamePreset.attacking_path == []:
-                    gui.text('Please draw a path before starting the game.', color=TEXT_DEFEAT_COLOR)
+                    gui.text('Please draw a attack path before starting the game.', color=TEXT_DEFEAT_COLOR)
+                if self.gamePreset.ai_path == []:
+                    gui.text('Please draw a ai path before starting the game.', color=TEXT_DEFEAT_COLOR)
                 
                 if gui.button('Start Game'): self._start_game()
 
@@ -213,35 +215,9 @@ class Window():
         self.state = self.STATE_LOADING
         self.canvas.set_background_color((0, 0, 0))
         
-        world_path_points = []
-        if self.gamePreset.attacking_path:
-            window_shape = self.window.get_window_shape()
-            aspect_ratio = window_shape[0] / window_shape[1]
-            sq_h = 0.6
-            sq_w = sq_h / aspect_ratio
-            sq_x = 0.45 
-            min_x, min_y = sq_x, 0.2
-            max_x, max_y = sq_x + sq_w, 0.2 + sq_h
-            
-            for pt in self.gamePreset.attacking_path:
-                norm_x = (pt[0] - min_x) / (max_x - min_x)
-                norm_y = (pt[1] - min_y) / (max_y - min_y)
-                
-                
-                world_x = (norm_x - 0.5) * 2 * self.gamePreset.map_size
-                world_y = (norm_y - 0.5) * 2 * self.gamePreset.map_size
-                
-                world_path_points.append((world_x, world_y))
-                
-        if self.gui and self.gamePreset and self.gamePreset.compare(self.gamePreset):
-            self.gui.reset(self.gamePreset)
-            self.state = self.STATE_GAME
-        else:
-            self.gui = GUI(self.window.get_gui(), self.window, self.scene, self.gamePreset)
-            self.gamePreset = self.gamePreset
-            self.loader = self.gui.load()
-            threading.Thread(target=self._run_loader, daemon=True).start()
-            
+        self.gui = GUI(self.window.get_gui(), self.window, self.scene, self.gamePreset)
+        self.loader = self.gui.load()
+        threading.Thread(target=self._run_loader, daemon=True).start()
 
     def _render_loading(self) -> None:
         self.canvas.set_background_color((0, 0, 0))
@@ -273,11 +249,9 @@ class Window():
             gui.text('')
             gui.text('You have achieved total domination!', color=TEXT_COLOR_WHITE)
             gui.text('')
-            
-            if self.gui and self.gui.GameMode == GameMode.MISSION_PLANNING:
-                if gui.button('Show Mission Analysis'):
-                    self._show_mission_analysis()
-                gui.text('')
+        
+            if gui.button('Show Mission Analysis'):
+                self._show_mission_analysis()
             
             if gui.button('Return to Main Menu'):
                 self._back_to_main_menu()
@@ -292,11 +266,9 @@ class Window():
             gui.text('Your forces have been eliminated!', color=TEXT_COLOR_WHITE)
             gui.text('')
             
-            if self.gui and self.gui.GameMode == GameMode.MISSION_PLANNING:
-                if gui.button('Show Mission Analysis'):
-                    self._show_mission_analysis()
-                gui.text('')
-            
+            if gui.button('Show Mission Analysis'):
+                self._show_mission_analysis()
+        
             if gui.button('Return to Main Menu'):
                 self._back_to_main_menu()
                 

@@ -5,32 +5,7 @@ class GuiState(str):
     def __init__(self) -> None:
         self.PAUSED: bool = False
         self.SHOW_VORONOI: bool = False
-        self.SHOW_GRID: bool = False
         self.SHOW_BOUNDARY: bool = True
-
-class EnemyAIParams(str):
-    def __init__(self, map_size: float) -> None:
-        self.engage_distance: float = 300.0
-        self.agression_threshold: float = 0.6
-        patrol_radius = map_size * 0.5
-        patrol_height = map_size * 0.5
-        
-        self.patrol_waypoints = [
-            [patrol_radius, patrol_radius, patrol_height],
-            [-patrol_radius, patrol_radius, patrol_height],
-            [-patrol_radius, -patrol_radius, patrol_height],
-            [patrol_radius, -patrol_radius, patrol_height],
-        ]
-        
-    def set_params(self, engage_distance: float | None, agression_threshold: float | None, patrol_waypoints: list[list[float]] | None) -> None:
-        if engage_distance is not None:
-            self.engage_distance = engage_distance
-            
-        if agression_threshold is not None:
-            self.agression_threshold = agression_threshold
-            
-        if patrol_waypoints is not None:
-            self.patrol_waypoints = patrol_waypoints
 
 class GamePresets:
     def __init__(self) -> None:
@@ -44,7 +19,8 @@ class GamePresets:
         self.ai_agression_threshold: float = 0.6
         self.ai_evaluate_state: int = 15
         self.ai_execute_state: int = 20
-        self.ai_path: list[tuple[float, float, DroneModes]] = [(0.0, 0.0, DroneModes.ATTACK.value), (1.0, 1.0, DroneModes.SPREAD.value)]
+        self.ai_path: list[tuple[float, float, float]] = [(0.0, 0.0, 0.0), (1.0, 1.0, 0.0)]
+        self.ai_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.ai_path)
         
         #Boids
         self.boids_attack_separation: float = 2.0
@@ -58,8 +34,8 @@ class GamePresets:
         self.boids_spread_target: float = 1.0
         
         #Drone
-        self.attacking_path: list[tuple[float, float, DroneModes]] = [(0.0, 0.0, DroneModes.ATTACK.value), (1.0, 1.0, DroneModes.SPREAD.value)]
-        self.drone_mode: DroneModes = DroneModes.ATTACK
+        self.attacking_path: list[tuple[float, float, float, DroneModes | None]] = [(0.0, 0.0, 0.0, DroneModes.ATTACK), (1.0, 1.0, 0.0, DroneModes.SPREAD)]
+        self.attacking_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.attacking_path)
         self.drone_max_speed: int = 20
         self.drone_perception_radius: int = 40
         self.drone_shooting_range: int = 50
@@ -73,6 +49,20 @@ class GamePresets:
         self.projectile_max_lifetime: int = 1
         self.projectile_radius: int = 1
         
+    def normalize_to_world_coordinates(self, points: list[tuple[float, float, float]] | list[tuple[float, float, float, DroneModes | None]] ) -> list[tuple[float, float, float, DroneModes | None]]:
+        if not points:
+            return []
+        
+        normalized = []
+        for pt in points:
+            if len(pt) == 3:
+                x, y, z = pt
+                normalized.append((x * self.map_size, y * self.map_size, z * self.map_size, None))
+            elif len(pt) == 4:
+                x, y, z, mode = pt
+                normalized.append((x * self.map_size, y * self.map_size, z * self.map_size, mode))
+        return normalized
+
     def compare(self, other: "GamePresets") -> bool:
         if self.attacking_drone_count != other.attacking_drone_count:
             return False
@@ -80,13 +70,13 @@ class GamePresets:
             return False
         return True
     
-    def generate_config_dict(self) -> dict[str, tuple[float | int | list[tuple[float, float, DroneModes]], str]]:
+    def generate_config_dict(self) -> dict[str, tuple[float | int | list, str]]:
         return {
             "map_size": (self.map_size, f"Type: int, Range: (50, 1000), Default: {self.map_size}"),
             "attacking_drone_count": (self.attacking_drone_count, f"Type: int, Range: (1, 8000), Default: {self.attacking_drone_count}"),
             "defending_drone_count": (self.defending_drone_count, f"Type: int, Range: (1, 8000), Default: {self.defending_drone_count}"),
             
-            "ai_path": (self.ai_path, f"Type: list[tuple[float, float, 'attack' | 'spread']], Range: (-1, 1), Default: {self.ai_path}"),
+            "ai_path": (self.ai_path, f"Type: list[tuple[float, float, float]], Range: (-1, 1), Default: {self.ai_path}"),
             "ai_engage_distance": (self.ai_engage_distance, f"Type: int, Range: (0, map_size), Default: {self.ai_engage_distance}"),
             "ai_agression_threshold": (self.ai_agression_threshold, f"Type: float, Range: (0, 1), Default: {round(self.ai_agression_threshold, 2)}"),
             "ai_evaluate_state": (self.ai_evaluate_state, f"Type: int, Range: (1, 50), Default: {self.ai_evaluate_state}"),
@@ -101,7 +91,7 @@ class GamePresets:
             "boids_spread_alignment": (self.boids_spread_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_spread_alignment}"),
             "boids_spread_target": (self.boids_spread_target, f"Type: int, Range: (1, 10), Default: {self.boids_spread_target}"),
             
-            "drone_path": (self.attacking_path, f"Type: list[tuple[float, float, 'attack' | 'spread']], Range: (-1, 1), Default: {self.attacking_path}"),
+            "drone_path": (self.attacking_path, f"Type: list[tuple[float, float, float, 'attack' | 'spread']], Range: (-1, 1), Default: {self.attacking_path}"),
             "drone_max_speed": (self.drone_max_speed, f"Type: int, Range: (1, 100), Default: {self.drone_max_speed}"),
             "drone_shooting_range": (self.drone_shooting_range, f"Type: int, Range: (0, map_size), Default: {self.drone_shooting_range}"),
             "drone_shooting_cooldown": (self.drone_shooting_cooldown, f"Type: int, Range: (0, 100), Default: {self.drone_shooting_cooldown}"),
@@ -115,7 +105,7 @@ class GamePresets:
         }
         
         
-    def load_config(self, config: dict[str, tuple[float | int | list[tuple[float, float, DroneModes]]]] | None) -> None:
+    def load_config(self, config: dict[str, tuple[float | int | list]] | None) -> None:
         if not config:
             return
         
@@ -124,6 +114,7 @@ class GamePresets:
         self.defending_drone_count = config.get("defending_drone_count", self.defending_drone_count)
         
         self.ai_path = config.get("ai_path", self.ai_path)
+        self.ai_path_normalized = self.normalize_to_world_coordinates(self.ai_path)
         self.ai_engage_distance = config.get("ai_engage_distance", self.ai_engage_distance)
         self.ai_agression_threshold = round(config.get("ai_agression_threshold", self.ai_agression_threshold), 2)
         self.ai_evaluate_state = config.get("ai_evaluate_state", self.ai_evaluate_state)
@@ -141,6 +132,7 @@ class GamePresets:
         self.boids_spread_target = config.get("boids_spread_target", self.boids_spread_target)
 
         self.attacking_path = config.get("drone_path", self.attacking_path)
+        self.attacking_path_normalized = self.normalize_to_world_coordinates(self.attacking_path)
         self.drone_max_speed = config.get("drone_max_speed", self.drone_max_speed)
         self.drone_shooting_range = config.get("drone_shooting_range", self.drone_shooting_range)
         self.drone_shooting_cooldown = config.get("drone_shooting_cooldown", self.drone_shooting_cooldown)

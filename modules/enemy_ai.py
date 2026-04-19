@@ -2,28 +2,30 @@ import taichi as ti
 import math
 from modules.constants import DroneModes
 from modules.drone import DroneSwarm
-from modules.utils import run_every_n_calls
 from modules.gui_utils import GamePresets
 
 @ti.data_oriented
 class EnemyAI:
-    def __init__(self, enemy_swarm: DroneSwarm, gamePreset: GamePresets) -> None:
-        self.swarm = enemy_swarm
-        self.map_size = gamePreset.map_size
-        self.update_params(gamePreset)
+    def __init__(self, swarm: DroneSwarm, gamePreset: GamePresets) -> None:
+        self.swarm = swarm
+        self._update_params(gamePreset)
+        
+    def _update_params(self, params: GamePresets) -> None:
+        self.state: DroneModes = DroneModes.ATTACK
+        self.map_size = params.map_size
+        self.engage_distance =  params.ai_engage_distance
+        self.agression_threshold = params.ai_agression_threshold
+        self.patrol_waypoints = params.ai_path_normalized
         
         self.current_waypoint = 0
         self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.target_field[0] = self.patrol_waypoints[0]
         
-    def update_params(self, params: GamePresets) -> None:
-        self.engage_distance =  params.ai_engage_distance
-        self.agression_threshold = params.ai_agression_threshold
-        self.patrol_waypoints = params.ai_path
-    
-    def get_target_field(self):
-        return self.target_field
-    
+        self.evaluate_state_interval = params.ai_evaluate_state
+        self.execute_state_interval = params.ai_execute_state
+        self.evaluate_state_counter = 0
+        self.execute_state_counter = 0
+        
     def _get_distance_to_player(self, player_swarm: DroneSwarm) -> float:
         enemy_center = self.swarm.get_swarm_center()
         player_center = player_swarm.get_swarm_center()
@@ -34,31 +36,34 @@ class EnemyAI:
         
         return math.sqrt(dx*dx + dy*dy + dz*dz)
     
-    def update(self, dt: float, player_swarm: DroneSwarm, player_territory: float) -> None:
-        self._evaluate_state(player_swarm, player_territory)
-        self._execute_state(player_swarm)
-        
-    @run_every_n_calls(15)
     def _evaluate_state(self, player_swarm: DroneSwarm, player_territory: float) -> None:
+        if self.evaluate_state_counter % self.evaluate_state_interval != 0:
+            self.evaluate_state_counter += 1
+            return
+        
         distance_to_player = self._get_distance_to_player(player_swarm)
         
-        agression: float = round(player_territory / 100, 2)
         new_state = self.state
-        if agression > self.agression_threshold:
+        if player_territory > self.agression_threshold:
             new_state = DroneModes.SPREAD
-        elif distance_to_player < self.engage_distance or agression <= self.agression_threshold:
+        elif distance_to_player < self.engage_distance or player_territory <= self.agression_threshold:
             new_state = DroneModes.ATTACK
         
         if self.state != new_state:
             self.state = new_state
             self.swarm.update_mode(new_state)
             
-    @run_every_n_calls(20)
     def _execute_state(self, player_swarm: DroneSwarm) -> None:
+        if self.execute_state_counter % self.execute_state_interval != 0:
+            self.execute_state_counter += 1
+            return
+
         if self.state == DroneModes.ATTACK:
             self._execute_attack(player_swarm)
         elif self.state == DroneModes.SPREAD:
             self._execute_spread(player_swarm)
+        else:
+            self._execute_patrol()
     
     def _execute_patrol(self) -> None:
         current_target = self.patrol_waypoints[self.current_waypoint]
@@ -79,11 +84,8 @@ class EnemyAI:
         self.target_field[0] = [center[0], center[1], self.map_size * 0.5] 
     
     def _execute_spread(self, player_swarm: DroneSwarm) -> None:
-        enemy_center = self.swarm.get_swarm_center()
-        player_center = player_swarm.get_swarm_center()
-        
-        enemy_x, enemy_y, enemy_z = enemy_center
-        player_x, player_y, player_z = player_center
+        enemy_x, enemy_y, enemy_z = self.swarm.get_swarm_center()
+        player_x, player_y, player_z = player_swarm.get_swarm_center()
         
         dx = enemy_x - player_x
         dy = enemy_y - player_y
@@ -102,5 +104,13 @@ class EnemyAI:
         else:
             self.target_field[0] = [self.map_size * 0.9, self.map_size * 0.9, self.map_size * 1.0]
 
+    def update(self, dt: float, player_swarm: DroneSwarm, player_territory: float) -> None:
+        self._evaluate_state(player_swarm, player_territory)
+        self._execute_state(player_swarm)
+
     def get_state(self) -> DroneModes:
         return self.state
+    
+    def get_target_field(self):
+        return self.target_field
+    

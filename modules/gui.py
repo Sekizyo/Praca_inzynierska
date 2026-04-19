@@ -4,7 +4,6 @@ from taichi.ui.ui import Gui
 from taichi.ui import Camera, RMB
 from modules.map import Map
 from modules.swarms import Swarms
-from modules.constants import GameMode
 from modules.voronoi import VoronoiDiagram
 from modules.gui_utils import GuiState, GamePresets
 from modules.utils import run_every_n_calls
@@ -16,7 +15,6 @@ class GUI():
         self.window = window
         self.scene = scene
         self.GuiState: GuiState = GuiState()
-        self.GameMode: GameMode = gamePreset.game_mode
         self.gamePreset: GamePresets = gamePreset
         
         self.dt: float = 0.15
@@ -101,7 +99,6 @@ class GUI():
 
             self.GuiState.SHOW_VORONOI = self.gui.checkbox("Show Voronoi", self.GuiState.SHOW_VORONOI)
             self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
-            self.GuiState.SHOW_GRID = self.gui.checkbox("Show Grid", self.GuiState.SHOW_GRID)
             
             self.stats_frame_counter += 1
             
@@ -176,16 +173,13 @@ class GUI():
 
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
-            self.swarms.player_follow_path(self.path_points)
             self.swarms.update_logic(self.dt, self.player_territory)
             
+        if self.GuiState.SHOW_BOUNDARY: self.map.draw_boundary()
+            
+        if self.GuiState.SHOW_VORONOI: self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
+        
         self._update_camera()
         self._update_gui()
         
-        if self.GuiState.SHOW_BOUNDARY:
-            self.map.draw_boundary()
-            
-        if self.GuiState.SHOW_VORONOI:
-            self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
-        
-        self.swarms.update_draw(self.GuiState)
+        self.swarms.update_draw()
