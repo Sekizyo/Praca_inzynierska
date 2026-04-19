@@ -1,5 +1,4 @@
 from modules.constants import GameMode
-from typing import Union, Optional
 from modules.drone import DroneModes
 
 class GuiState(str):
@@ -23,7 +22,7 @@ class EnemyAIParams(str):
             [patrol_radius, -patrol_radius, patrol_height],
         ]
         
-    def set_params(self, engage_distance: Optional[float], agression_threshold: Optional[float], patrol_waypoints: Optional[list[list[float]]]) -> None:
+    def set_params(self, engage_distance: float | None, agression_threshold: float | None, patrol_waypoints: list[list[float]] | None) -> None:
         if engage_distance is not None:
             self.engage_distance = engage_distance
             
@@ -43,7 +42,20 @@ class GamePresets:
         #AI
         self.ai_engage_distance: int = 300
         self.ai_agression_threshold: float = 0.6
+        self.ai_evaluate_state: int = 15
+        self.ai_execute_state: int = 20
         self.ai_path: list[tuple[float, float, DroneModes]] = [(0.0, 0.0, DroneModes.ATTACK.value), (1.0, 1.0, DroneModes.SPREAD.value)]
+        
+        #Boids
+        self.boids_attack_separation: float = 2.0
+        self.boids_attack_alignment: float = 2.0
+        self.boids_attack_cohesion: float = 1.5
+        self.boids_attack_target: float = 2.0
+        
+        self.boids_spread_separation: float = 3.5
+        self.boids_spread_alignment: float = 0.7
+        self.boids_spread_cohesion: float = 0.3
+        self.boids_spread_target: float = 1.0
         
         #Drone
         self.attacking_path: list[tuple[float, float, DroneModes]] = [(0.0, 0.0, DroneModes.ATTACK.value), (1.0, 1.0, DroneModes.SPREAD.value)]
@@ -68,7 +80,7 @@ class GamePresets:
             return False
         return True
     
-    def generate_config_dict(self) -> dict[str, tuple[Union[float, int, list[tuple[float, float, DroneModes]]], str]]:
+    def generate_config_dict(self) -> dict[str, tuple[float | int | list[tuple[float, float, DroneModes]], str]]:
         return {
             "map_size": (self.map_size, f"Type: int, Range: (50, 1000), Default: {self.map_size}"),
             "attacking_drone_count": (self.attacking_drone_count, f"Type: int, Range: (1, 8000), Default: {self.attacking_drone_count}"),
@@ -77,6 +89,17 @@ class GamePresets:
             "ai_path": (self.ai_path, f"Type: list[tuple[float, float, 'attack' | 'spread']], Range: (-1, 1), Default: {self.ai_path}"),
             "ai_engage_distance": (self.ai_engage_distance, f"Type: int, Range: (0, map_size), Default: {self.ai_engage_distance}"),
             "ai_agression_threshold": (self.ai_agression_threshold, f"Type: float, Range: (0, 1), Default: {round(self.ai_agression_threshold, 2)}"),
+            "ai_evaluate_state": (self.ai_evaluate_state, f"Type: int, Range: (1, 50), Default: {self.ai_evaluate_state}"),
+            "ai_execute_state": (self.ai_execute_state, f"Type: int, Range: (1, 50), Default: {self.ai_execute_state}"),
+            
+            "boids_attack_cohesion": (self.boids_attack_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_attack_cohesion}"),
+            "boids_attack_separation": (self.boids_attack_separation, f"Type: int, Range: (1, 10), Default: {self.boids_attack_separation}"),
+            "boids_attack_alignment": (self.boids_attack_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_attack_alignment}"),
+            "boids_attack_target": (self.boids_attack_target, f"Type: int, Range: (1, 10), Default: {self.boids_attack_target}"),
+            "boids_spread_cohesion": (self.boids_spread_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_spread_cohesion}"),
+            "boids_spread_separation": (self.boids_spread_separation, f"Type: int, Range: (1, 10), Default: {self.boids_spread_separation}"),
+            "boids_spread_alignment": (self.boids_spread_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_spread_alignment}"),
+            "boids_spread_target": (self.boids_spread_target, f"Type: int, Range: (1, 10), Default: {self.boids_spread_target}"),
             
             "drone_path": (self.attacking_path, f"Type: list[tuple[float, float, 'attack' | 'spread']], Range: (-1, 1), Default: {self.attacking_path}"),
             "drone_max_speed": (self.drone_max_speed, f"Type: int, Range: (1, 100), Default: {self.drone_max_speed}"),
@@ -92,7 +115,7 @@ class GamePresets:
         }
         
         
-    def load_config(self, config: dict[str, tuple[Union[float, int, list[tuple[float, float, DroneModes]]]]]) -> None:
+    def load_config(self, config: dict[str, tuple[float | int | list[tuple[float, float, DroneModes]]]] | None) -> None:
         if not config:
             return
         
@@ -103,7 +126,20 @@ class GamePresets:
         self.ai_path = config.get("ai_path", self.ai_path)
         self.ai_engage_distance = config.get("ai_engage_distance", self.ai_engage_distance)
         self.ai_agression_threshold = round(config.get("ai_agression_threshold", self.ai_agression_threshold), 2)
+        self.ai_evaluate_state = config.get("ai_evaluate_state", self.ai_evaluate_state)
+        self.ai_execute_state = config.get("ai_execute_state", self.ai_execute_state)
         
+        
+        self.boids_attack_separation = config.get("boids_attack_separation", self.boids_attack_separation)
+        self.boids_attack_alignment = config.get("boids_attack_alignment", self.boids_attack_alignment)
+        self.boids_attack_cohesion = config.get("boids_attack_cohesion", self.boids_attack_cohesion)
+        self.boids_attack_target = config.get("boids_attack_target", self.boids_attack_target)
+
+        self.boids_spread_separation = config.get("boids_spread_separation", self.boids_spread_separation)  
+        self.boids_spread_alignment = config.get("boids_spread_alignment", self.boids_spread_alignment)
+        self.boids_spread_cohesion = config.get("boids_spread_cohesion", self.boids_spread_cohesion)
+        self.boids_spread_target = config.get("boids_spread_target", self.boids_spread_target)
+
         self.attacking_path = config.get("drone_path", self.attacking_path)
         self.drone_max_speed = config.get("drone_max_speed", self.drone_max_speed)
         self.drone_shooting_range = config.get("drone_shooting_range", self.drone_shooting_range)

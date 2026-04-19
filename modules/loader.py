@@ -1,17 +1,17 @@
-from typing import Union, Optional
 import os
 from datetime import datetime
 from tkinter.filedialog import askopenfilename
+from .constants import DroneModes
 
 class FileManager:
-    def create_config(self, config: dict[str, tuple[tuple[float | int | tuple[float, float]], str]]) -> None:
+    def create_config(self, config: dict[str, tuple[float | int | list[tuple[float, float, DroneModes]], str]]) -> None:
         os.makedirs("scenario", exist_ok=True)
         self.file_path = f"scenario/scenario_config_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
         with open(self.file_path, 'w') as f:
             for key, (value, description) in config.items():
                 f.write(f"{key}: {value}  # {description}\n")
                 
-    def load_config(self) -> Optional[dict[str, Union[float, int, list[tuple[float, float]]]]]:
+    def load_config(self) -> dict[str, tuple[float | int | list[tuple[float, float, DroneModes]]]] | None:
         config = {}
         try:
             path = askopenfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")], title="Select a scenario file")

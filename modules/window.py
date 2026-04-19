@@ -1,7 +1,6 @@
 import taichi as ti
 import threading
 import multiprocessing 
-from typing import Optional
 from taichi.ui.canvas import SceneV2
 from taichi.ui.window import Window as TWindow
 from taichi.ui import LMB, Canvas
@@ -9,14 +8,15 @@ from modules.gui import GUI
 from modules.colors import *
 from modules.constants import GameMode
 import matplotlib.pyplot as plt
-from modules.gui_utils import EnemyAIParams, GamePresets
+from modules.gui_utils import GamePresets
 from modules.loader import FileManager
 
-def run_plot_process(history: dict):
+def run_plot_process(history: dict) -> None:
     try:
         plt.style.use('dark_background')
         
         fig, axs = plt.subplots(2, 2, figsize=(14, 10))
+        if fig is None: return None
         fig.canvas.manager.set_window_title('Mission Analysis')
         
         axs[0, 0].plot(history['time'], history['player_count'], label='Player', color='green')
@@ -102,6 +102,20 @@ class Window():
                 gui.text('AI parameters:', color=TEXT_COLOR_DARK_GRAY)
                 self.gamePreset.ai_engage_distance = gui.slider_int('Engage Distance', self.gamePreset.ai_engage_distance, 0, self.gamePreset.map_size)
                 self.gamePreset.ai_agression_threshold = gui.slider_float('Aggression', self.gamePreset.ai_agression_threshold, 0, 1.0)
+                self.gamePreset.ai_evaluate_state = gui.slider_int('Evaluate State', self.gamePreset.ai_evaluate_state, 1, 50)
+                self.gamePreset.ai_execute_state = gui.slider_int('Execute State', self.gamePreset.ai_execute_state, 1, 50)
+                
+                gui.text('')
+                gui.text('Boids parameters:', color=TEXT_COLOR_DARK_GRAY)
+                self.gamePreset.boids_attack_separation = gui.slider_float('Attack Separation', self.gamePreset.boids_attack_separation, 1, 10)
+                self.gamePreset.boids_attack_alignment = gui.slider_float('Attack Alignment', self.gamePreset.boids_attack_alignment, 1, 10)
+                self.gamePreset.boids_attack_cohesion = gui.slider_float('Attack Cohesion', self.gamePreset.boids_attack_cohesion, 1, 10)
+                self.gamePreset.boids_attack_target = gui.slider_float('Attack Target', self.gamePreset.boids_attack_target, 1, 10)
+                
+                self.gamePreset.boids_spread_separation = gui.slider_float('Spread Separation', self.gamePreset.boids_spread_separation, 1, 10)
+                self.gamePreset.boids_spread_alignment = gui.slider_float('Spread Alignment', self.gamePreset.boids_spread_alignment, 1, 10)
+                self.gamePreset.boids_spread_cohesion = gui.slider_float('Spread Cohesion', self.gamePreset.boids_spread_cohesion, 1, 10)
+                self.gamePreset.boids_spread_target = gui.slider_float('Spread Target', self.gamePreset.boids_spread_target, 1, 10)
                 
                 gui.text('')
                 gui.text('Drone parameters:', color=TEXT_COLOR_DARK_GRAY)

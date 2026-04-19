@@ -4,19 +4,19 @@ from modules.colors import *
 import taichi as ti
 from taichi.ui.scene import SceneV2
 
-from modules.gui_utils import GuiState, EnemyAIParams
+from modules.gui_utils import GuiState, GamePresets
 from modules.enemy_ai import EnemyAI
 
 @ti.data_oriented
 class Swarms():
-    def __init__(self, scene: SceneV2, drone_count_player: int, drone_count_enemy: int, map_size: float, enemy_ai_params: EnemyAIParams) -> None:
+    def __init__(self, scene: SceneV2, gamePreset: GamePresets) -> None:
         self.scene = scene
-        self.map_size = map_size
-        self.drone_count_player = drone_count_player
-        self.drone_count_enemy = drone_count_enemy
-        self.player_swarm = DroneSwarm(count=drone_count_player, boundary_size=map_size, team=0)
-        self.enemy_swarm = DroneSwarm(count=drone_count_enemy, boundary_size=map_size, team=1)
-        self.enemy_ai = EnemyAI(self.enemy_swarm, map_size, enemy_ai_params)
+        self.map_size = gamePreset.map_size
+        self.drone_count_player = gamePreset.attacking_drone_count
+        self.drone_count_enemy = gamePreset.defending_drone_count
+        self.player_swarm = DroneSwarm(count=self.drone_count_player, boundary_size=self.map_size, team=0)
+        self.enemy_swarm = DroneSwarm(count=self.drone_count_enemy, boundary_size=self.map_size, team=1)
+        self.enemy_ai = EnemyAI(self.enemy_swarm, gamePreset)
         self._init_swarms()
         
     def _init_swarms(self) -> None:
@@ -52,12 +52,12 @@ class Swarms():
         self.grid_line_count = ti.field(dtype=ti.i32, shape=())
         self.frame_count = 0
 
-    def reset(self, enemy_ai_params: EnemyAIParams) -> None:
-        self.player_target_field[0] = [-self.map_size, -self.map_size, 0.0]
+    def reset(self, gamePreset: GamePresets) -> None:
+        self.gamePreset = gamePreset
+        self.enemy_ai = EnemyAI(self.enemy_swarm, gamePreset)
+        self.player_target_field[0] = [-self.gamePreset.map_size, -self.gamePreset.map_size, 0.0]
         self.frame_count = 0
         self.player_swarm.reset()
-        self.enemy_swarm.reset()
-        self.enemy_ai.update_params(enemy_ai_params)
         
     @ti.kernel
     def update_shared_grid(self):

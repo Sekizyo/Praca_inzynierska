@@ -262,15 +262,10 @@ class DroneSwarm:
             self.alignment_modifier[None] = 0.7
             self.cohesion_modifier[None] = 0.3
             self.target_weight[None] = 1
-        elif mode == 2:
-            self.separation_modifier[None] = 3
-            self.alignment_modifier[None] = 1.0
-            self.cohesion_modifier[None] = 1
-            self.target_weight[None] = 1.5
     
     def update_mode(self, mode: DroneModes):
         self.mode = mode
-        mode_map = {DroneModes.ATTACK: 0, DroneModes.SPREAD: 1, DroneModes.PATROL: 2}
+        mode_map = {DroneModes.ATTACK: 0, DroneModes.SPREAD: 1}
         self._update_mode(mode_map[mode])
 
     @ti.kernel

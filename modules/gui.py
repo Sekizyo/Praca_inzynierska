@@ -1,12 +1,12 @@
 from taichi.ui.scene import SceneV2
 from taichi.ui.window import Window as TWindow
 from taichi.ui.ui import Gui
-from taichi.ui import Camera, LMB, RMB
+from taichi.ui import Camera, RMB
 from modules.map import Map
 from modules.swarms import Swarms
-from modules.constants import DroneModes, GameMode
+from modules.constants import GameMode
 from modules.voronoi import VoronoiDiagram
-from modules.gui_utils import GuiState, EnemyAIParams, GamePresets
+from modules.gui_utils import GuiState, GamePresets
 from modules.utils import run_every_n_calls
 import time
 
@@ -17,19 +17,15 @@ class GUI():
         self.scene = scene
         self.GuiState: GuiState = GuiState()
         self.GameMode: GameMode = gamePreset.game_mode
-        self.path_points = gamePreset.path_points
-        self.MAP_SIZE: float = gamePreset.map_size
+        self.gamePreset: GamePresets = gamePreset
         
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
-        self.drone_count_player: int = gamePreset.attacking_drone_count
-        self.drone_count_enemy: int = gamePreset.defending_drone_count
         self.stats_frame_counter: int = 0
         self.return_to_menu: bool = False
         self.victory: bool = False
         self.defeat: bool = False
         self.player_territory = 50.0
-        self.enemy_ai_params: EnemyAIParams = gamePreset.enemy_ai_params
         self.start_time: float = 0.0
         self.stats_history = {
             "time": [],
@@ -43,13 +39,13 @@ class GUI():
         
     def load(self):
         yield "Initializing Swarms"
-        self.swarms: Swarms = Swarms(self.scene, self.drone_count_player, self.drone_count_enemy, self.MAP_SIZE, self.enemy_ai_params)
+        self.swarms: Swarms = Swarms(self.scene, self.gamePreset)
         
         yield "Initializing Map"
-        self.map = Map(self.scene, self.MAP_SIZE)
+        self.map = Map(self.scene, self.gamePreset.map_size)
         
         yield "Initializing Voronoi"
-        self.voronoi = VoronoiDiagram(boundary=self.MAP_SIZE)
+        self.voronoi = VoronoiDiagram(boundary=self.gamePreset.map_size)
 
         yield "Initializing Camera"
         self._init_camera()
@@ -63,6 +59,7 @@ class GUI():
         self.start_time = time.time()
         
     def reset(self, gamePreset: GamePresets) -> None:
+        self.gamePreset = gamePreset
         self.GuiState = GuiState()
         self.return_to_menu = False
         self.victory = False
@@ -78,8 +75,7 @@ class GUI():
             "damage_e": [], 
             "kd_ratio": []  
         }
-        self.path_points = gamePreset.path_points
-        self.swarms.reset(gamePreset.enemy_ai_params)
+        self.swarms.reset(gamePreset)
         self.voronoi.reset()
         self.start_time = time.time()
 
@@ -93,25 +89,8 @@ class GUI():
     def _update_camera(self) -> None:
         self.camera.track_user_inputs(self.window, movement_speed=3.0, hold_key=RMB)
         self.scene.set_camera(self.camera)
-        self.scene.point_light(pos=(0, 0, self.MAP_SIZE), color=(1, 1, 1))
+        self.scene.point_light(pos=(0, 0, self.gamePreset.map_size), color=(1, 1, 1))
         
-    def _handle_input(self) -> None:
-        if self.GameMode == GameMode.RTS:
-            if self.window.is_pressed("z"):
-                self.player_swarm.update_mode(DroneModes.ATTACK)
-            elif self.window.is_pressed("x"):
-                self.player_swarm.update_mode(DroneModes.SPREAD)
-            else:
-                pass
-
-            if self.window.is_pressed(LMB):
-                mouse_pos = self.window.get_cursor_pos()
-                x = (mouse_pos[0] - 0.5) * self.MAP_SIZE * 2.0
-                y = (mouse_pos[1] - 0.5) * self.MAP_SIZE * 2.0
-                self.swarms.set_player_target(x, y)
-                
-        self._update_camera()
-
     def _update_gui(self) -> None:
         with self.gui.sub_window("Controls", 0.01, 0.01, 0.15, 0.4):
             if self.gui.button("Main Menu"):
@@ -171,18 +150,13 @@ class GUI():
                 self.defeat = True
             
             self.gui.text(f"Win percentage: {domination*100:.1f}%")
-            self.gui.text(f"Player drones: {player_count}")
-            self.gui.text(f"Enemy drones: {enemy_count}")
-            self.gui.text(f"Player mode: {self.player_swarm.get_mode()}")
-            self.gui.text(f"Enemy AI state: {self.enemy_ai.get_state()}")
+            self.gui.text(f"Attacking drones: {player_count}")
+            self.gui.text(f"Defending drones: {enemy_count}")
+            self.gui.text(f"Attacking mode: {self.player_swarm.get_mode()}")
+            self.gui.text(f"Defending mode: {self.enemy_ai.get_state()}")
             
-            self.gui.text(f"Frame: {self.frame_time*1000:.2f}ms")
             self.gui.text(f"FPS: {1.0/(self.frame_time + 1e-5):.1f}")
-            
-            self.gui.text(f"Z - Attack mode")
-            self.gui.text(f"X - Spread mode")
-            self.gui.text(f"LMB - Set target position")
-            self.gui.text(f"RMB - Move camera")
+            self.gui.text(f"Frame: {self.frame_time*1000:.2f}ms")
             
     @run_every_n_calls(20)
     def _calc_voronoi(self) -> None:
@@ -202,12 +176,10 @@ class GUI():
 
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
-            if self.GameMode == GameMode.MISSION_PLANNING:
-                self.swarms.player_follow_path(self.path_points)
+            self.swarms.player_follow_path(self.path_points)
             self.swarms.update_logic(self.dt, self.player_territory)
             
-            
-        self._handle_input()
+        self._update_camera()
         self._update_gui()
         
         if self.GuiState.SHOW_BOUNDARY:

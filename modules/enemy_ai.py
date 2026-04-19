@@ -3,24 +3,23 @@ import math
 from modules.constants import DroneModes
 from modules.drone import DroneSwarm
 from modules.utils import run_every_n_calls
-from modules.gui_utils import EnemyAIParams
+from modules.gui_utils import GamePresets
 
 @ti.data_oriented
 class EnemyAI:
-    def __init__(self, enemy_swarm: DroneSwarm, map_size: float, params: EnemyAIParams) -> None:
+    def __init__(self, enemy_swarm: DroneSwarm, gamePreset: GamePresets) -> None:
         self.swarm = enemy_swarm
-        self.map_size = map_size
-        self.state = DroneModes.PATROL
-        self.update_params(params)
+        self.map_size = gamePreset.map_size
+        self.update_params(gamePreset)
         
         self.current_waypoint = 0
         self.target_field = ti.Vector.field(3, dtype=ti.f32, shape=1)
         self.target_field[0] = self.patrol_waypoints[0]
         
-    def update_params(self, params: EnemyAIParams) -> None:
-        self.engage_distance =  params.engage_distance
-        self.agression_threshold = params.agression_threshold
-        self.patrol_waypoints = params.patrol_waypoints
+    def update_params(self, params: GamePresets) -> None:
+        self.engage_distance =  params.ai_engage_distance
+        self.agression_threshold = params.ai_agression_threshold
+        self.patrol_waypoints = params.ai_path
     
     def get_target_field(self):
         return self.target_field
@@ -45,9 +44,7 @@ class EnemyAI:
         
         agression: float = round(player_territory / 100, 2)
         new_state = self.state
-        if distance_to_player > self.engage_distance:
-            new_state = DroneModes.PATROL
-        elif agression > self.agression_threshold:
+        if agression > self.agression_threshold:
             new_state = DroneModes.SPREAD
         elif distance_to_player < self.engage_distance or agression <= self.agression_threshold:
             new_state = DroneModes.ATTACK
@@ -58,9 +55,7 @@ class EnemyAI:
             
     @run_every_n_calls(20)
     def _execute_state(self, player_swarm: DroneSwarm) -> None:
-        if self.state == DroneModes.PATROL:
-            self._execute_patrol()
-        elif self.state == DroneModes.ATTACK:
+        if self.state == DroneModes.ATTACK:
             self._execute_attack(player_swarm)
         elif self.state == DroneModes.SPREAD:
             self._execute_spread(player_swarm)
