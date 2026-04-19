@@ -54,9 +54,6 @@ def run_plot_process(history: dict):
         raise 
     
 class Window():
-    MAP_SIZE: float = 250.0
-    DRONE_PRESETS: list[int] = [500, 1000, 2000, 4000, 8000]
-    STATE_MENU: int = 0
     STATE_LOADING: int = 1
     STATE_GAME: int = 2
     STATE_VICTORY: int = 3
@@ -68,14 +65,13 @@ class Window():
         self.window: TWindow = TWindow(title, size, pos=(0,30), show_window=True, vsync=False)
         self.canvas: Canvas = self.window.get_canvas()
         self.scene: SceneV2 = self.window.get_scene()
-        self.gui: Optional[GUI] = None
+        self.gui: GUI | None = None
         self.loader = None
         self.gamePreset: GamePresets = GamePresets()
         
         self.state: int = self.STATE_PLANNING
         self.loading_text: str = 'Starting'
         self.loading_frames: int = 0
-        self.defending_engage_distance: int = 300
 
     def _reset_planning_fields(self) -> None:
         self.planning_path_field.fill(0)
@@ -98,31 +94,30 @@ class Window():
                 
                 gui.text('')
                 gui.text('Critical parameters:', color=TEXT_COLOR_DARK_GRAY)
-                self.gamePreset.map_size = gui.slider_float('Map size', self.gamePreset.map_size, 50, 1000)
+                self.gamePreset.map_size = gui.slider_int('Map size', self.gamePreset.map_size, 50, 1000)
                 self.gamePreset.attacking_drone_count = gui.slider_int('Attacking Team', self.gamePreset.attacking_drone_count, 1, 8000)
                 self.gamePreset.defending_drone_count = gui.slider_int('Defending Team', self.gamePreset.defending_drone_count, 1, 8000)
 
                 gui.text('')
                 gui.text('AI parameters:', color=TEXT_COLOR_DARK_GRAY)
-                self.gamePreset.ai_engage_distance = gui.slider_float('Engage Distance', self.gamePreset.ai_engage_distance, 0, 1000)
+                self.gamePreset.ai_engage_distance = gui.slider_int('Engage Distance', self.gamePreset.ai_engage_distance, 0, self.gamePreset.map_size)
                 self.gamePreset.ai_agression_threshold = gui.slider_float('Aggression', self.gamePreset.ai_agression_threshold, 0, 1.0)
                 
                 gui.text('')
                 gui.text('Drone parameters:', color=TEXT_COLOR_DARK_GRAY)
-                self.gamePreset.drone_max_speed = gui.slider_float('Max Speed', self.gamePreset.drone_max_speed, 1, 100)
-                self.gamePreset.drone_shooting_range = gui.slider_float('Shooting Range', self.gamePreset.drone_shooting_range, 0, 1000)
-                self.gamePreset.drone_shooting_cooldown = gui.slider_float('Shooting Cooldown', self.gamePreset.drone_shooting_cooldown, 0, 1000)
-                self.gamePreset.drone_max_health = gui.slider_float('Max Health', self.gamePreset.drone_max_health, 1, 1000)
-                self.gamePreset.drone_perception_radius = gui.slider_float('Perception Radius', self.gamePreset.drone_perception_radius, 0, 360)
-                self.gamePreset.drone_hit_radius = gui.slider_float('Hit Radius', self.gamePreset.drone_hit_radius, 1, 1000)
-                self.gamePreset.fov_cosine = gui.slider_float('FOV', self.gamePreset.fov_cosine, -1, 1)
+                self.gamePreset.drone_max_speed = gui.slider_int('Max Speed', self.gamePreset.drone_max_speed, 1, 100)
+                self.gamePreset.drone_shooting_range = gui.slider_int('Shooting Range', self.gamePreset.drone_shooting_range, 0, self.gamePreset.map_size)
+                self.gamePreset.drone_shooting_cooldown = gui.slider_float('Shooting Cooldown', self.gamePreset.drone_shooting_cooldown, 0, 100)
+                self.gamePreset.drone_max_health = gui.slider_int('Max Health', self.gamePreset.drone_max_health, 1, 500)
+                self.gamePreset.drone_perception_radius = gui.slider_int('Perception Radius', self.gamePreset.drone_perception_radius, 0, 360)
+                self.gamePreset.drone_hit_radius = gui.slider_int('Hit Radius', self.gamePreset.drone_hit_radius, 1, 5)
                 
                 gui.text('')
                 gui.text('Projectiles parameters:', color=TEXT_COLOR_DARK_GRAY)
-                self.gamePreset.projectile_damage = gui.slider_float('Damage', self.gamePreset.projectile_damage, 1, 1000)
-                self.gamePreset.projectile_speed = gui.slider_float('Speed', self.gamePreset.projectile_speed, 1, 1000)
-                self.gamePreset.projectile_radius = gui.slider_float('Radius', self.gamePreset.projectile_radius, 1, 1000)
-                self.gamePreset.projectile_max_lifetime = gui.slider_float('Max Lifetime', self.gamePreset.projectile_max_lifetime, 0.1, 1000)
+                self.gamePreset.projectile_damage = gui.slider_int('Damage', self.gamePreset.projectile_damage, 1, self.gamePreset.drone_max_health)
+                self.gamePreset.projectile_speed = gui.slider_int('Speed', self.gamePreset.projectile_speed, 1, 100)
+                self.gamePreset.projectile_radius = gui.slider_int('Radius', self.gamePreset.projectile_radius, 1, 5)
+                self.gamePreset.projectile_max_lifetime = gui.slider_float('Max Lifetime', self.gamePreset.projectile_max_lifetime, 0.5, 10)
                 
                 gui.text('')
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
@@ -134,19 +129,10 @@ class Window():
                 if gui.button('Load Scenario'): self.gamePreset.load_config(FileManager().load_config())
                     
                 gui.text('')
-                if self.gamePreset.path_points == []:
+                if self.gamePreset.attacking_path == []:
                     gui.text('Please draw a path before starting the game.', color=TEXT_DEFEAT_COLOR)
                 
-                if gui.button('Start Game'):
-                    if self.gamePreset.path_points != []:
-                        enemy_ai_params = EnemyAIParams(self.MAP_SIZE)
-                        enemy_ai_params.set_params(
-                            engage_distance=None,
-                            agression_threshold=self.gamePreset.ai_agression_threshold,
-                            patrol_waypoints=None
-                        )
-                        
-                        self._start_game(GameMode.MISSION_PLANNING, enemy_ai_params=enemy_ai_params)
+                if gui.button('Start Game'): self._start_game()
 
             window_shape = self.window.get_window_shape()
             aspect_ratio = window_shape[0] / window_shape[1]
@@ -182,21 +168,21 @@ class Window():
                 curr_mouse = self.window.get_cursor_pos()
                 if min_x <= curr_mouse[0] <= max_x and min_y <= curr_mouse[1] <= max_y:
                     should_add = True
-                    if len(self.gamePreset.path_points) > 0:
-                        last_pt = self.gamePreset.path_points[-1]
+                    if len(self.gamePreset.attacking_path) > 0:
+                        last_pt = self.gamePreset.attacking_path[-1]
                         dist_sq = (curr_mouse[0] - last_pt[0])**2 + (curr_mouse[1] - last_pt[1])**2
                         if dist_sq < 0.001: 
                             should_add = False
                     if should_add:
-                        self.gamePreset.path_points.append(curr_mouse)
+                        self.gamePreset.attacking_path.append(curr_mouse)
                         
-            path_len = len(self.gamePreset.path_points)
+            path_len = len(self.gamePreset.attacking_path)
             if path_len > 1:
                 max_segments = 1000
                 segments_to_draw = min(path_len - 1, max_segments)
                 for i in range(segments_to_draw):
-                    p_curr = self.gamePreset.path_points[i]
-                    p_next = self.gamePreset.path_points[i+1]
+                    p_curr = self.gamePreset.attacking_path[i]
+                    p_next = self.gamePreset.attacking_path[i+1]
                     self.planning_path_field[2*i] = [p_curr[0], p_curr[1]]
                     self.planning_path_field[2*i+1] = [p_next[0], p_next[1]]
                 
@@ -206,15 +192,15 @@ class Window():
         if self.gui:
             self.gui.GuiState.PAUSED = True
         self.loader = None
-        self.state = self.STATE_MENU
+        self.state = self.STATE_PLANNING
         self.loading_frames = 0
 
-    def _start_game(self, game_mode: GameMode, enemy_ai_params: EnemyAIParams) -> None:
+    def _start_game(self) -> None:
         self.state = self.STATE_LOADING
         self.canvas.set_background_color((0, 0, 0))
         
         world_path_points = []
-        if self.gamePreset.path_points:
+        if self.gamePreset.attacking_path:
             window_shape = self.window.get_window_shape()
             aspect_ratio = window_shape[0] / window_shape[1]
             sq_h = 0.6
@@ -223,13 +209,13 @@ class Window():
             min_x, min_y = sq_x, 0.2
             max_x, max_y = sq_x + sq_w, 0.2 + sq_h
             
-            for pt in self.gamePreset.path_points:
+            for pt in self.gamePreset.attacking_path:
                 norm_x = (pt[0] - min_x) / (max_x - min_x)
                 norm_y = (pt[1] - min_y) / (max_y - min_y)
                 
                 
-                world_x = (norm_x - 0.5) * 2 * self.MAP_SIZE
-                world_y = (norm_y - 0.5) * 2 * self.MAP_SIZE
+                world_x = (norm_x - 0.5) * 2 * self.gamePreset.map_size
+                world_y = (norm_y - 0.5) * 2 * self.gamePreset.map_size
                 
                 world_path_points.append((world_x, world_y))
                 
@@ -302,10 +288,7 @@ class Window():
                 
     def run(self) -> None:
         while self.window.running:
-            if self.state == self.STATE_MENU:
-                self._render_menu()
-                self.window.show()
-            elif self.state == self.STATE_LOADING:
+            if self.state == self.STATE_LOADING:
                 self._render_loading()
                 self.window.show()
                 self.loading_frames += 1
@@ -320,18 +303,6 @@ class Window():
                 self._render_defeat()
                 self.window.show()
             else:
-                if self.gui.return_to_menu:
-                    self.gui.return_to_menu = False
-                    self.loader = None
-                    self.state = self.STATE_MENU
-                    self.loading_frames = 0
-                    continue
-                if self.gui.victory:
-                    self.state = self.STATE_VICTORY
-                    continue
-                if self.gui.defeat:
-                    self.state = self.STATE_DEFEAT
-                    continue
                 self.gui.update()
                 self.canvas.scene(self.scene)
                 self.window.show()

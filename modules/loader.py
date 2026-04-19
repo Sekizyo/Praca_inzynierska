@@ -1,3 +1,4 @@
+from typing import Union, Optional
 import os
 from datetime import datetime
 from tkinter.filedialog import askopenfilename
@@ -10,9 +11,15 @@ class FileManager:
             for key, (value, description) in config.items():
                 f.write(f"{key}: {value}  # {description}\n")
                 
-    def load_config(self) -> dict[str, float | int | tuple[float, float]]:
-        config: dict[str, float | int | tuple[float, float]] = {}
-        path = askopenfilename()
+    def load_config(self) -> Optional[dict[str, Union[float, int, list[tuple[float, float]]]]]:
+        config = {}
+        try:
+            path = askopenfilename(defaultextension=".txt", filetypes=[("Text files", "*.txt")], title="Select a scenario file")
+            if not path:
+                return None
+        except Exception as e:
+            return None
+        
         with open(path, 'r') as f:
             for line in f:
                 if line.strip() == '' or line.strip().startswith('#'):
