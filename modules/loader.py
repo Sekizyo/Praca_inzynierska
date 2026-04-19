@@ -1,18 +1,19 @@
 import os
 from datetime import datetime
+from tkinter.filedialog import askopenfilename
 
 class FileManager:
     def create_config(self, config: dict[str, tuple[tuple[float | int | tuple[float, float]], str]]) -> None:
-        os.makedirs("config", exist_ok=True)
-        self.file_path = f"config/scenario_config_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
+        os.makedirs("scenario", exist_ok=True)
+        self.file_path = f"scenario/scenario_config_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
         with open(self.file_path, 'w') as f:
             for key, (value, description) in config.items():
                 f.write(f"{key}: {value}  # {description}\n")
                 
-                
     def load_config(self) -> dict[str, float | int | tuple[float, float]]:
         config: dict[str, float | int | tuple[float, float]] = {}
-        with open(self.file_path, 'r') as f:
+        path = askopenfilename()
+        with open(path, 'r') as f:
             for line in f:
                 if line.strip() == '' or line.strip().startswith('#'):
                     continue

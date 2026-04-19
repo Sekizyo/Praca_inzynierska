@@ -63,77 +63,24 @@ class Window():
     STATE_DEFEAT: int = 4
     STATE_PLANNING: int = 5
     
-    def __init__(self, title="Drone Voronoi Sim", size=(1920, 1000)) -> None:
+    def __init__(self, title="Drone Sim", size=(1920, 1000)) -> None:
         ti.init(arch=ti.vulkan, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, offline_cache_file_path="ticache", offline_cache_cleaning_policy="lru", kernel_profiler=False, fast_math=True, debug=False)        
         self.window: TWindow = TWindow(title, size, pos=(0,30), show_window=True, vsync=False)
         self.canvas: Canvas = self.window.get_canvas()
         self.scene: SceneV2 = self.window.get_scene()
         self.gui: Optional[GUI] = None
         self.loader = None
-        self.gamePreset: Optional[GamePresets] = None
+        self.gamePreset: GamePresets = GamePresets()
         
-        self.state: int = self.STATE_MENU
+        self.state: int = self.STATE_PLANNING
         self.loading_text: str = 'Starting'
         self.loading_frames: int = 0
-        self.drone_count: int = 0
-        self.selected_preset: int = 1
-        self.attacking_drone_count: int = self.DRONE_PRESETS[1]
-        self.defending_drone_count: int = self.DRONE_PRESETS[1]
-        self.defending_aggression: float = 0.6
         self.defending_engage_distance: int = 300
-        self.path_points: list[tuple[float, float]] = []
 
-    def _render_menu(self) -> None:
-        self.canvas.set_background_color(MENU_BACKGROUND_COLOR)
-        gui = self.window.get_gui()
-
-        with gui.sub_window('Drone Voronoi Sim', 0.3, 0.2, 0.4, 0.6):
-            gui.text('Welcome to Drone Voronoi Simulator', color=TEXT_COLOR_WHITE)
-            gui.text('')
-            gui.text('Select drone count per team:', color=TEXT_COLOR_GRAY)
-            gui.text('')
-
-            for i, preset in enumerate(self.DRONE_PRESETS):
-                label = f'> {preset} drones <' if i == self.selected_preset else f'  {preset} drones  '
-                if gui.button(label):
-                    self.selected_preset = i
-                    self.attacking_drone_count = preset
-                    self.defending_drone_count = preset
-
-            gui.text('')
-            gui.text(f'Selected: {self.attacking_drone_count} drones per team', color=TEXT_COLOR_GREEN)
-            gui.text(f'Total drones: {self.attacking_drone_count + self.defending_drone_count}', color=TEXT_COLOR_GREEN)
-            gui.text('')
-
-            if gui.button('Real-Time Mode'):
-                enemy_ai_params = EnemyAIParams(self.MAP_SIZE)
-                self._start_game(GameMode.RTS, enemy_ai_params=enemy_ai_params)
-                
-            if gui.button('Mission Planning Mode'):
-                self.state = self.STATE_PLANNING
-                
-            gui.text('')
-            gui.text('Game Rules:', color=TEXT_COLOR_DARK_GRAY)
-            gui.text('1. Control your drones to dominate the map.', color=TEXT_COLOR_LIGHT_GRAY)
-            gui.text('2. Use LMB to set target positions.', color=TEXT_COLOR_LIGHT_GRAY)
-            gui.text('3. Use Z for attack mode and X for spread mode.', color=TEXT_COLOR_LIGHT_GRAY)
-            gui.text('4. Achieve victory by eliminating all enemy drones.', color=TEXT_COLOR_LIGHT_GRAY)
-            gui.text('')
-
-            gui.text('Controls:', color=TEXT_COLOR_DARK_GRAY)
-            gui.text('LMB - Set target position', color=TEXT_COLOR_LIGHT_GRAY)
-            gui.text('RMB - Move camera', color=TEXT_COLOR_LIGHT_GRAY)
-            gui.text('Z - Attack mode', color=TEXT_COLOR_LIGHT_GRAY)
-            gui.text('X - Spread mode', color=TEXT_COLOR_LIGHT_GRAY)
-            
     def _reset_planning_fields(self) -> None:
-        self.path_points = []
         self.planning_path_field.fill(0)
-        self.attacking_drone_count = self.DRONE_PRESETS[1]
-        self.defending_drone_count = self.DRONE_PRESETS[1]
-        self.defending_aggression = 0.6
-        self.defending_engage_distance  = 300
-            
+        self.gamePreset: GamePresets = GamePresets()
+        
     def _render_planning_menu(self) -> None:
             self.canvas.set_background_color(MENU_BACKGROUND_COLOR)
             gui = self.window.get_gui()
@@ -144,41 +91,58 @@ class Window():
                 self.planning_start_pos = ti.Vector.field(2, dtype=ti.f32, shape=2)
                 self.planning_start_col = ti.Vector.field(3, dtype=ti.f32, shape=2)
                 
-            with gui.sub_window('Mission Planning', 0.05, 0.2, 0.3, 0.6):
-                if gui.button('Return to Main Menu'): self._back_to_main_menu()
-                    
+            with gui.sub_window('Mission Planning', 0.05, 0.1, 0.3, 0.8):
                 gui.text('')
                 gui.text('Mission Planning', color=TEXT_COLOR_WHITE)
                 gui.text('Draw a path for drones to follow on the right panel.', color=TEXT_COLOR_LIGHT_GRAY)
                 
                 gui.text('')
-                self.attacking_drone_count = gui.slider_int('Attacking Team', self.attacking_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
+                gui.text('Critical parameters:', color=TEXT_COLOR_DARK_GRAY)
+                self.gamePreset.map_size = gui.slider_float('Map size', self.gamePreset.map_size, 50, 1000)
+                self.gamePreset.attacking_drone_count = gui.slider_int('Attacking Team', self.gamePreset.attacking_drone_count, 1, 8000)
+                self.gamePreset.defending_drone_count = gui.slider_int('Defending Team', self.gamePreset.defending_drone_count, 1, 8000)
+
                 gui.text('')
+                gui.text('AI parameters:', color=TEXT_COLOR_DARK_GRAY)
+                self.gamePreset.ai_engage_distance = gui.slider_float('Engage Distance', self.gamePreset.ai_engage_distance, 0, 1000)
+                self.gamePreset.ai_agression_threshold = gui.slider_float('Aggression', self.gamePreset.ai_agression_threshold, 0, 1.0)
                 
-                self.defending_drone_count = gui.slider_int('Defending Team', self.defending_drone_count, self.DRONE_PRESETS[0], self.DRONE_PRESETS[-1])
                 gui.text('')
+                gui.text('Drone parameters:', color=TEXT_COLOR_DARK_GRAY)
+                self.gamePreset.drone_max_speed = gui.slider_float('Max Speed', self.gamePreset.drone_max_speed, 1, 100)
+                self.gamePreset.drone_shooting_range = gui.slider_float('Shooting Range', self.gamePreset.drone_shooting_range, 0, 1000)
+                self.gamePreset.drone_shooting_cooldown = gui.slider_float('Shooting Cooldown', self.gamePreset.drone_shooting_cooldown, 0, 1000)
+                self.gamePreset.drone_max_health = gui.slider_float('Max Health', self.gamePreset.drone_max_health, 1, 1000)
+                self.gamePreset.drone_perception_radius = gui.slider_float('Perception Radius', self.gamePreset.drone_perception_radius, 0, 360)
+                self.gamePreset.drone_hit_radius = gui.slider_float('Hit Radius', self.gamePreset.drone_hit_radius, 1, 1000)
+                self.gamePreset.fov_cosine = gui.slider_float('FOV', self.gamePreset.fov_cosine, -1, 1)
                 
-                self.defending_aggression = gui.slider_float('Defending Team Aggression', self.defending_aggression, 0, 1.0)
+                gui.text('')
+                gui.text('Projectiles parameters:', color=TEXT_COLOR_DARK_GRAY)
+                self.gamePreset.projectile_damage = gui.slider_float('Damage', self.gamePreset.projectile_damage, 1, 1000)
+                self.gamePreset.projectile_speed = gui.slider_float('Speed', self.gamePreset.projectile_speed, 1, 1000)
+                self.gamePreset.projectile_radius = gui.slider_float('Radius', self.gamePreset.projectile_radius, 1, 1000)
+                self.gamePreset.projectile_max_lifetime = gui.slider_float('Max Lifetime', self.gamePreset.projectile_max_lifetime, 0.1, 1000)
                 
                 gui.text('')
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
-                gui.text('Green: Player Start', color=TEXT_COLOR_GREEN)
-                gui.text('Red: Enemy Start', color=TEXT_DEFEAT_COLOR)
+                gui.text('Green: Attacking Start', color=TEXT_COLOR_GREEN)
+                gui.text('Red: Defending Start', color=TEXT_DEFEAT_COLOR)
 
                 if gui.button('Reset'): self._reset_planning_fields()
-                if gui.button('Generate Scenario File'): FileManager().create_config(GamePresets().generate_config_dict())
-                if gui.button('Load Scenario'): self._reset_planning_fields()
+                if gui.button('Save Scenario'): gui.text("Saved successfully.") if not FileManager().create_config(self.gamePreset.generate_config_dict()) else gui.text('Failed to save scenario.', color=TEXT_DEFEAT_COLOR)
+                if gui.button('Load Scenario'): self.gamePreset.load_config(FileManager().load_config())
                     
                 gui.text('')
-                if self.path_points == []:
+                if self.gamePreset.path_points == []:
                     gui.text('Please draw a path before starting the game.', color=TEXT_DEFEAT_COLOR)
                 
                 if gui.button('Start Game'):
-                    if self.path_points != []:
+                    if self.gamePreset.path_points != []:
                         enemy_ai_params = EnemyAIParams(self.MAP_SIZE)
                         enemy_ai_params.set_params(
                             engage_distance=None,
-                            agression_threshold=self.defending_aggression,
+                            agression_threshold=self.gamePreset.ai_agression_threshold,
                             patrol_waypoints=None
                         )
                         
@@ -218,21 +182,21 @@ class Window():
                 curr_mouse = self.window.get_cursor_pos()
                 if min_x <= curr_mouse[0] <= max_x and min_y <= curr_mouse[1] <= max_y:
                     should_add = True
-                    if len(self.path_points) > 0:
-                        last_pt = self.path_points[-1]
+                    if len(self.gamePreset.path_points) > 0:
+                        last_pt = self.gamePreset.path_points[-1]
                         dist_sq = (curr_mouse[0] - last_pt[0])**2 + (curr_mouse[1] - last_pt[1])**2
                         if dist_sq < 0.001: 
                             should_add = False
                     if should_add:
-                        self.path_points.append(curr_mouse)
+                        self.gamePreset.path_points.append(curr_mouse)
                         
-            path_len = len(self.path_points)
+            path_len = len(self.gamePreset.path_points)
             if path_len > 1:
                 max_segments = 1000
                 segments_to_draw = min(path_len - 1, max_segments)
                 for i in range(segments_to_draw):
-                    p_curr = self.path_points[i]
-                    p_next = self.path_points[i+1]
+                    p_curr = self.gamePreset.path_points[i]
+                    p_next = self.gamePreset.path_points[i+1]
                     self.planning_path_field[2*i] = [p_curr[0], p_curr[1]]
                     self.planning_path_field[2*i+1] = [p_next[0], p_next[1]]
                 
@@ -250,7 +214,7 @@ class Window():
         self.canvas.set_background_color((0, 0, 0))
         
         world_path_points = []
-        if self.path_points:
+        if self.gamePreset.path_points:
             window_shape = self.window.get_window_shape()
             aspect_ratio = window_shape[0] / window_shape[1]
             sq_h = 0.6
@@ -259,7 +223,7 @@ class Window():
             min_x, min_y = sq_x, 0.2
             max_x, max_y = sq_x + sq_w, 0.2 + sq_h
             
-            for pt in self.path_points:
+            for pt in self.gamePreset.path_points:
                 norm_x = (pt[0] - min_x) / (max_x - min_x)
                 norm_y = (pt[1] - min_y) / (max_y - min_y)
                 
@@ -269,21 +233,12 @@ class Window():
                 
                 world_path_points.append((world_x, world_y))
                 
-        gamePreset: GamePresets = GamePresets(
-            map_size=self.MAP_SIZE,
-            game_mode=game_mode,
-            attacking_drone_count=self.attacking_drone_count,
-            defending_drone_count=self.defending_drone_count,
-            path_points=world_path_points,
-            enemy_ai_params=enemy_ai_params
-        )
-        
-        if self.gui and self.gamePreset and gamePreset.compare(self.gamePreset):
-            self.gui.reset(gamePreset)
+        if self.gui and self.gamePreset and self.gamePreset.compare(self.gamePreset):
+            self.gui.reset(self.gamePreset)
             self.state = self.STATE_GAME
         else:
-            self.gui = GUI(self.window.get_gui(), self.window, self.scene, gamePreset)
-            self.gamePreset = gamePreset
+            self.gui = GUI(self.window.get_gui(), self.window, self.scene, self.gamePreset)
+            self.gamePreset = self.gamePreset
             self.loader = self.gui.load()
             threading.Thread(target=self._run_loader, daemon=True).start()
             
