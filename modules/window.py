@@ -6,7 +6,6 @@ from taichi.ui.window import Window as TWindow
 from taichi.ui import LMB, Canvas
 from modules.gui import GUI
 from modules.colors import *
-from modules.constants import GameMode
 import matplotlib.pyplot as plt
 from modules.gui_utils import GamePresets
 from modules.loader import FileManager
@@ -87,7 +86,7 @@ class Window():
                 self.planning_start_pos = ti.Vector.field(2, dtype=ti.f32, shape=2)
                 self.planning_start_col = ti.Vector.field(3, dtype=ti.f32, shape=2)
                 
-            with gui.sub_window('Mission Planning', 0.05, 0.1, 0.3, 0.8):
+            with gui.sub_window('Mission Planning', 0.05, 0.05, 0.3, 0.9):
                 gui.text('')
                 gui.text('Mission Planning', color=TEXT_COLOR_WHITE)
                 gui.text('Draw a path for drones to follow on the right panel.', color=TEXT_COLOR_LIGHT_GRAY)
@@ -282,12 +281,14 @@ class Window():
                 self._render_planning_menu()
                 self.window.show()
                 self.loading_frames += 1
-            elif self.state == self.STATE_VICTORY:
+            elif self.gui and self.gui.victory:
                 self._render_victory()
                 self.window.show()
-            elif self.state == self.STATE_DEFEAT:
+            elif self.gui and self.gui.defeat:
                 self._render_defeat()
                 self.window.show()
+            elif self.gui and self.gui.return_to_menu:
+                self._back_to_main_menu()
             else:
                 self.gui.update()
                 self.canvas.scene(self.scene)

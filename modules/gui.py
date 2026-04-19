@@ -56,30 +56,9 @@ class GUI():
         yield "Finalizing"
         self.start_time = time.time()
         
-    def reset(self, gamePreset: GamePresets) -> None:
-        self.gamePreset = gamePreset
-        self.GuiState = GuiState()
-        self.return_to_menu = False
-        self.victory = False
-        self.defeat = False
-        self.player_territory = 50.0
-        self.stats_frame_counter = 0
-        self.stats_history = {
-            "time": [],
-            "player_count": [],
-            "enemy_count": [],
-            "territory": [],
-            "damage_p": [], 
-            "damage_e": [], 
-            "kd_ratio": []  
-        }
-        self.swarms.reset(gamePreset)
-        self.voronoi.reset()
-        self.start_time = time.time()
-
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()
-        self.camera.position(0, 0, 500)
+        self.camera.position(0, 0, self.gamePreset.map_size * 1.5)
         self.camera.lookat(0, 0, 0)
         self.camera.up(0, 1, 0)
         self.camera.fov(90)

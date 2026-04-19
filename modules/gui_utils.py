@@ -15,7 +15,7 @@ class GamePresets:
         self.defending_drone_count: int = 1000
         
         #AI
-        self.ai_engage_distance: int = 300
+        self.ai_engage_distance: int = 150
         self.ai_agression_threshold: float = 0.6
         self.ai_evaluate_state: int = 15
         self.ai_execute_state: int = 20
@@ -28,7 +28,7 @@ class GamePresets:
         self.boids_attack_cohesion: float = 1.5
         self.boids_attack_target: float = 2.0
         
-        self.boids_spread_separation: float = 3.5
+        self.boids_spread_separation: float = 2.0
         self.boids_spread_alignment: float = 0.7
         self.boids_spread_cohesion: float = 0.3
         self.boids_spread_target: float = 1.0
@@ -46,7 +46,7 @@ class GamePresets:
         # Projectile
         self.projectile_speed: int = 50
         self.projectile_damage: int = 25
-        self.projectile_max_lifetime: int = 1
+        self.projectile_max_lifetime: int = 2
         self.projectile_radius: int = 1
         
     def normalize_to_world_coordinates(self, points: list[tuple[float, float, float]] | list[tuple[float, float, float, DroneModes | None]] ) -> list[tuple[float, float, float, DroneModes | None]]:

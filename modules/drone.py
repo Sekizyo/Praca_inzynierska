@@ -516,7 +516,7 @@ class DroneSwarm:
             (swarm_center[2] - current_target[2])**2
         )
         
-        if dist < 50.0:
+        if dist < self.params.map_size * 0.5:
             self.current_waypoint = (self.current_waypoint + 1) % len(self.path)
             
     def set_target(self, x: float, y: float, z: float):
