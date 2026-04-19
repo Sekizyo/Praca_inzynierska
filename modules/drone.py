@@ -1,29 +1,40 @@
+import math
+
 import taichi as ti
 
 from taichi import Vector, Field, MatrixField, data_oriented
 from taichi.types import f32
 from modules.constants import DroneModes
+from modules.gui_utils import GamePresets
 
 @data_oriented
 class DroneSwarm:
-    max_speed: float = 20.0
-    max_force: float = 0.5
-    perception_radius: float = 40.0
-    mode: DroneModes = DroneModes.ATTACK
-    projectile_speed: float = 50.0
-    shoot_range: float = 50.0
-    shoot_cooldown: float = 2.0
-    hit_radius: float = 2.0
-    max_health: float = 100.0
-    projectile_damage: float = 25.0
-    projectile_max_lifetime: float = 1.0
-    projectile_radius: float = 0.5
-    fov_cosine: float = 0.0 
-
-    def __init__(self, count: int, boundary_size: float, team: int = 0) -> None:
-        self.N: int = count
-        self.boundary: float = boundary_size
+    def __init__(self, params: GamePresets, team: int) -> None:
+        self.params = params
+        
         self.team: int = team
+        if self.team == 0:
+            self.N: int = params.attacking_drone_count
+            self.path = params.attacking_path_normalized
+        else:
+            self.N: int = params.defending_drone_count
+            self.path = params.ai_path_normalized
+            
+        self.boundary: float = params.map_size
+        
+        self.max_speed: float = params.drone_max_speed
+        self.max_force: float = 0.5
+        self.perception_radius: float = params.drone_perception_radius
+        self.projectile_speed: float = params.projectile_speed
+        self.shoot_range: float = params.drone_shooting_range
+        self.shoot_cooldown: float = params.drone_shooting_cooldown
+        self.hit_radius: float = params.drone_hit_radius
+        self.max_health: float =  params.drone_max_health
+        self.projectile_damage: float = params.projectile_damage
+        self.projectile_max_lifetime: float = params.projectile_max_lifetime
+        self.projectile_radius: float = params.projectile_radius
+        
+        self.mode: DroneModes = DroneModes.ATTACK
         
         self.pos: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         self.vel: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
@@ -33,7 +44,7 @@ class DroneSwarm:
         self.health: MatrixField = Vector.field(1, dtype=ti.f32, shape=self.N)
         self.cooldown: MatrixField = Vector.field(1, dtype=ti.f32, shape=self.N)
         
-        self.max_projectiles: int = count
+        self.max_projectiles: int = self.N * 2
         self.projectile_pos: MatrixField = Vector.field(3, dtype=f32, shape=self.max_projectiles)
         self.projectile_vel: MatrixField = Vector.field(3, dtype=f32, shape=self.max_projectiles)
         self.projectile_active: Field = ti.field(dtype=ti.i32, shape=self.max_projectiles)
@@ -51,6 +62,8 @@ class DroneSwarm:
         self.center_y = ti.field(dtype=ti.f32, shape=())
         self.center_z = ti.field(dtype=ti.f32, shape=())
         self.alive_count_cache = ti.field(dtype=ti.i32, shape=())
+        self.target = ti.Vector.field(3, dtype=ti.f32, shape=1)
+        self.current_waypoint: int = 0
         
         # [Alive Count, Center X, Center Y, Center Z]
         self.stats = ti.field(dtype=ti.f32, shape=4)
@@ -59,10 +72,6 @@ class DroneSwarm:
         self.total_damage = ti.field(dtype=ti.f32, shape=())
         self.death_count = ti.field(dtype=ti.i32, shape=())
         
-        self._initialize()
-
-
-    def reset(self):
         self._initialize()
 
     @ti.kernel
@@ -108,9 +117,6 @@ class DroneSwarm:
         
         self.projectile_free_count[None] = self.max_projectiles
             
-    def get_mode(self) -> DroneModes:   
-        return self.mode
-
     @ti.kernel
     def update_statistics(self):
         total_x = 0.0
@@ -151,12 +157,6 @@ class DroneSwarm:
             self.stats[2] = 0.0
             self.stats[3] = 0.0
     
-    def pull_stats(self):
-        self.cached_stats = self.stats.to_numpy()
-
-    def get_alive_count(self) -> int:
-        return int(self.cached_stats[0])
-        
     @ti.func
     def calculate_flocking(self, i: ti.i32, 
                    pos_self: ti.types.vector(3, ti.f32),
@@ -250,26 +250,28 @@ class DroneSwarm:
                 steer_coh * self.cohesion_modifier[None])
 
     @ti.kernel
-    def _update_mode(self, mode: ti.i32):
-        
+    def _update_mode(self, mode: int):
         if mode == 0:
-            self.separation_modifier[None] = 2
-            self.alignment_modifier[None] = 2
-            self.cohesion_modifier[None] = 1.5
-            self.target_weight[None] = 2
+            self.separation_modifier[None] = self.params.boids_attack_separation
+            self.alignment_modifier[None] = self.params.boids_attack_alignment
+            self.cohesion_modifier[None] = self.params.boids_attack_cohesion
+            self.target_weight[None] = self.params.boids_attack_target
         elif mode == 1:
-            self.separation_modifier[None] = 3.5
-            self.alignment_modifier[None] = 0.7
-            self.cohesion_modifier[None] = 0.3
-            self.target_weight[None] = 1
+            self.separation_modifier[None] = self.params.boids_spread_separation
+            self.alignment_modifier[None] = self.params.boids_spread_alignment
+            self.cohesion_modifier[None] = self.params.boids_spread_cohesion
+            self.target_weight[None] = self.params.boids_spread_target
     
-    def update_mode(self, mode: DroneModes):
+    def update_mode(self, mode: DroneModes | None):
+        if not mode:
+            return 
+        
         self.mode = mode
         mode_map = {DroneModes.ATTACK: 0, DroneModes.SPREAD: 1}
         self._update_mode(mode_map[mode])
 
     @ti.kernel
-    def update(self, dt: ti.f32, target_pos: ti.template(),
+    def update(self, dt: ti.f32,
                grid_count: ti.template(), 
                grid_buckets: ti.template(), 
                grid_cell_size: ti.f32, 
@@ -330,7 +332,7 @@ class DroneSwarm:
             
             pos_val = ti.Vector([new_pos_x, new_pos_y, new_pos_z])
             
-            direction = target_pos[0] - pos_val
+            direction = self.target[0] - pos_val
             dir_norm = direction.norm()
             if dir_norm > 1e-6:
                 acc_val += direction * (target_weight_val / dir_norm)
@@ -374,7 +376,7 @@ class DroneSwarm:
         hit_radius_sq = self.hit_radius * self.hit_radius
         boundary_val = self.boundary
         projectile_speed_val = self.projectile_speed
-        fov_cosine_val = self.fov_cosine
+        fov_cosine_val = self.params.drone_perception_radius
         
         # Shooting phase 
         for i in range(self.N):
@@ -501,6 +503,33 @@ class DroneSwarm:
                                         self.projectile_free_list[free_idx] = i
                                         hit_detected = 1
                                         break
+                                    
+    def follow_path(self):
+        current_target = self.path[self.current_waypoint]
+        self.set_target(current_target[0], current_target[1], current_target[2])
+        self.update_mode(current_target[3])
+        
+        swarm_center = self.get_swarm_center()
+        dist = math.sqrt(
+            (swarm_center[0] - current_target[0])**2 +
+            (swarm_center[1] - current_target[1])**2 +
+            (swarm_center[2] - current_target[2])**2
+        )
+        
+        if dist < 50.0:
+            self.current_waypoint = (self.current_waypoint + 1) % len(self.path)
+            
+    def set_target(self, x: float, y: float, z: float):
+        self.target[0] = ti.Vector([x, y, z])
+    
+    def get_stats(self):
+        self.cached_stats = self.stats.to_numpy()
+        
+    def get_target_position(self):
+        return self.target
+    
+    def get_mode(self) -> DroneModes:   
+        return self.mode
     
     def get_swarm_center(self):
         return [self.center_x[None], self.center_y[None], self.center_z[None]]
@@ -513,3 +542,6 @@ class DroneSwarm:
     
     def get_projectile_active_field(self) -> Field:
         return self.projectile_active
+
+    def get_alive_count(self) -> int:
+        return int(self.cached_stats[0])

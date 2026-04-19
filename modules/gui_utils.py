@@ -37,7 +37,7 @@ class GamePresets:
         self.attacking_path: list[tuple[float, float, float, DroneModes | None]] = [(0.0, 0.0, 0.0, DroneModes.ATTACK), (1.0, 1.0, 0.0, DroneModes.SPREAD)]
         self.attacking_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.attacking_path)
         self.drone_max_speed: int = 20
-        self.drone_perception_radius: int = 40
+        self.drone_perception_radius: int = 120
         self.drone_shooting_range: int = 50
         self.drone_shooting_cooldown: int = 2
         self.drone_hit_radius: int = 2

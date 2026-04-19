@@ -49,9 +49,9 @@ class GUI():
         self._init_camera()
         
         yield "Fetching Swarm references"
-        self.player_swarm = self.swarms.get_player_swarm()
-        self.enemy_swarm = self.swarms.get_enemy_swarm()
-        self.enemy_ai = self.swarms.get_enemy_ai()
+        self.player_swarm = self.swarms.get_attacking_swarm()
+        self.enemy_swarm = self.swarms.get_defending_swarm()
+        self.enemy_ai = self.swarms.get_defending_ai()
         
         yield "Finalizing"
         self.start_time = time.time()
@@ -103,8 +103,8 @@ class GUI():
             self.stats_frame_counter += 1
             
             if self.stats_frame_counter % 30 == 0:
-                self.player_swarm.pull_stats()
-                self.enemy_swarm.pull_stats()
+                self.player_swarm.get_stats()
+                self.enemy_swarm.get_stats()
                 self.voronoi.pull_stats()
                 self.player_territory = self.voronoi.get_territory_ratio()
                 self.stats_frame_counter = 0
@@ -136,21 +136,21 @@ class GUI():
             if total_drones > 0:
                 drone_ratio = player_count / total_drones
                 territory_ratio = self.player_territory / 100.0
-                domination = (drone_ratio * 0.8 + territory_ratio * 0.2)
+                self.domination = (drone_ratio * 0.8 + territory_ratio * 0.2)
             else:
-                domination = 0.5
+                self.domination = 0.5
             
-            if domination >= 0.95:
+            if self.domination >= 0.95:
                 self.victory = True
             
-            if domination <= 0.05:
+            if self.domination <= 0.05:
                 self.defeat = True
             
-            self.gui.text(f"Win percentage: {domination*100:.1f}%")
+            self.gui.text(f"Win percentage: {self.domination*100:.1f}%")
             self.gui.text(f"Attacking drones: {player_count}")
             self.gui.text(f"Defending drones: {enemy_count}")
             self.gui.text(f"Attacking mode: {self.player_swarm.get_mode()}")
-            self.gui.text(f"Defending mode: {self.enemy_ai.get_state()}")
+            self.gui.text(f"Defending mode: {self.enemy_swarm.get_mode()}")
             
             self.gui.text(f"FPS: {1.0/(self.frame_time + 1e-5):.1f}")
             self.gui.text(f"Frame: {self.frame_time*1000:.2f}ms")
