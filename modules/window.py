@@ -128,6 +128,7 @@ class Window():
                 self.gamePreset.drone_shooting_cooldown = gui.slider_float('Shooting Cooldown', self.gamePreset.drone_shooting_cooldown, 0, 100)
                 self.gamePreset.drone_max_health = gui.slider_int('Max Health', self.gamePreset.drone_max_health, 1, 500)
                 self.gamePreset.drone_perception_radius = gui.slider_int('Perception Radius', self.gamePreset.drone_perception_radius, 0, 360)
+                self.gamePreset.drone_shooting_perception_radius = gui.slider_float('Shooting Perception Radius', self.gamePreset.drone_shooting_perception_radius, 0, 1)
                 self.gamePreset.drone_hit_radius = gui.slider_int('Hit Radius', self.gamePreset.drone_hit_radius, 1, 5)
                 
                 gui.text('')

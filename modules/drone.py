@@ -25,6 +25,7 @@ class DroneSwarm:
         self.max_speed: float = params.drone_max_speed
         self.max_force: float = 0.5
         self.perception_radius: float = params.drone_perception_radius
+        self.shooting_perception_radius: float = params.drone_shooting_perception_radius
         self.projectile_speed: float = params.projectile_speed
         self.shoot_range: float = params.drone_shooting_range
         self.shoot_cooldown: float = params.drone_shooting_cooldown
@@ -381,7 +382,7 @@ class DroneSwarm:
         hit_radius_sq = self.hit_radius * self.hit_radius
         boundary_val = self.boundary
         projectile_speed_val = self.projectile_speed
-        fov_cosine_val = self.params.drone_perception_radius
+        fov_cosine_val = self.shooting_perception_radius
         
         # Shooting phase 
         for i in range(self.N):

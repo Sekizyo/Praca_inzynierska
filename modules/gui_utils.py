@@ -43,6 +43,7 @@ class GamePresets:
         self.attacking_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.attacking_path)
         self.drone_max_speed: int = 20
         self.drone_perception_radius: int = 120
+        self.drone_shooting_perception_radius: int = 0
         self.drone_shooting_range: int = 50
         self.drone_shooting_cooldown: int = 2
         self.drone_hit_radius: int = 2
@@ -108,6 +109,7 @@ class GamePresets:
             "drone_shooting_cooldown": (self.drone_shooting_cooldown, f"Type: int, Range: (0, 100), Default: {self.drone_shooting_cooldown}"),
             "drone_max_health": (self.drone_max_health, f"Type: int, Range: (1, 100), Default: {self.drone_max_health}"),
             "drone_perception_radius": (self.drone_perception_radius, f"Type: int, Range: (0, 360), Default: {self.drone_perception_radius}"),
+            "drone_shooting_perception_radius": (self.drone_shooting_perception_radius, f"Type: int, Range: (0, 360), Default: {self.drone_shooting_perception_radius}"),
             "drone_hit_radius": (self.drone_hit_radius, f"Type: int, Range: (1, 5), Default: {self.drone_hit_radius}"),
             
             "projectile_damage": (self.projectile_damage, f"Type: int, Range: (1, drone_max_health), Default: {self.projectile_damage}"),
@@ -154,6 +156,7 @@ class GamePresets:
         self.drone_shooting_cooldown = config.get("drone_shooting_cooldown", self.drone_shooting_cooldown)
         self.drone_max_health = config.get("drone_max_health", self.drone_max_health)
         self.drone_perception_radius = config.get("drone_perception_radius", self.drone_perception_radius)
+        self.drone_shooting_perception_radius = config.get("drone_shooting_perception_radius", self.drone_shooting_perception_radius)
         self.drone_hit_radius = config.get("drone_hit_radius", self.drone_hit_radius)
         
         self.projectile_damage = config.get("projectile_damage", self.projectile_damage)
