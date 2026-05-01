@@ -23,6 +23,7 @@ class GUI():
         self.return_to_menu: bool = False
         self.victory: bool = False
         self.defeat: bool = False
+        self.domination: float = 0.5
         self.player_territory = 50.0
         self.start_time: float = 0.0
         self.stats_history = {
@@ -152,7 +153,7 @@ class GUI():
 
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
-            self.swarms.update_logic(self.dt, self.player_territory)
+            self.swarms.update_logic(self.dt, self.domination)
             
         if self.GuiState.SHOW_BOUNDARY: self.map.draw_boundary()
             

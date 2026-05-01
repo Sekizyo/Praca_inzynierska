@@ -33,6 +33,11 @@ class GamePresets:
         self.boids_spread_cohesion: float = 0.3
         self.boids_spread_target: float = 1.0
         
+        self.boids_patrol_separation: float = 2.0
+        self.boids_patrol_alignment: float = 0.7
+        self.boids_patrol_cohesion: float = 0.3
+        self.boids_patrol_target: float = 1.0
+        
         #Drone
         self.attacking_path: list[tuple[float, float, float, DroneModes | None]] = [(0.0, 0.0, 0.0, DroneModes.ATTACK), (1.0, 1.0, 0.0, DroneModes.SPREAD)]
         self.attacking_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.attacking_path)
@@ -86,10 +91,16 @@ class GamePresets:
             "boids_attack_separation": (self.boids_attack_separation, f"Type: int, Range: (1, 10), Default: {self.boids_attack_separation}"),
             "boids_attack_alignment": (self.boids_attack_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_attack_alignment}"),
             "boids_attack_target": (self.boids_attack_target, f"Type: int, Range: (1, 10), Default: {self.boids_attack_target}"),
+            
             "boids_spread_cohesion": (self.boids_spread_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_spread_cohesion}"),
             "boids_spread_separation": (self.boids_spread_separation, f"Type: int, Range: (1, 10), Default: {self.boids_spread_separation}"),
             "boids_spread_alignment": (self.boids_spread_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_spread_alignment}"),
             "boids_spread_target": (self.boids_spread_target, f"Type: int, Range: (1, 10), Default: {self.boids_spread_target}"),
+            
+            "boids_patrol_cohesion": (self.boids_patrol_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_patrol_cohesion}"),
+            "boids_patrol_separation": (self.boids_patrol_separation, f"Type: int, Range: (1, 10), Default: {self.boids_patrol_separation}"),
+            "boids_patrol_alignment": (self.boids_patrol_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_patrol_alignment}"),
+            "boids_patrol_target": (self.boids_patrol_target, f"Type: int, Range: (1, 10), Default: {self.boids_patrol_target}"),
             
             "drone_path": (self.attacking_path, f"Type: list[tuple[float, float, float, 'attack' | 'spread']], Range: (-1, 1), Default: {self.attacking_path}"),
             "drone_max_speed": (self.drone_max_speed, f"Type: int, Range: (1, 100), Default: {self.drone_max_speed}"),
@@ -130,6 +141,11 @@ class GamePresets:
         self.boids_spread_alignment = config.get("boids_spread_alignment", self.boids_spread_alignment)
         self.boids_spread_cohesion = config.get("boids_spread_cohesion", self.boids_spread_cohesion)
         self.boids_spread_target = config.get("boids_spread_target", self.boids_spread_target)
+
+        self.boids_patrol_separation = config.get("boids_patrol_separation", self.boids_patrol_separation)
+        self.boids_patrol_alignment = config.get("boids_patrol_alignment", self.boids_patrol_alignment)
+        self.boids_patrol_cohesion = config.get("boids_patrol_cohesion", self.boids_patrol_cohesion)
+        self.boids_patrol_target = config.get("boids_patrol_target", self.boids_patrol_target)
 
         self.attacking_path = config.get("drone_path", self.attacking_path)
         self.attacking_path_normalized = self.normalize_to_world_coordinates(self.attacking_path)

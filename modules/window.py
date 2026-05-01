@@ -116,6 +116,11 @@ class Window():
                 self.gamePreset.boids_spread_cohesion = gui.slider_float('Spread Cohesion', self.gamePreset.boids_spread_cohesion, 1, 10)
                 self.gamePreset.boids_spread_target = gui.slider_float('Spread Target', self.gamePreset.boids_spread_target, 1, 10)
                 
+                self.gamePreset.boids_patrol_separation = gui.slider_float('Patrol Separation', self.gamePreset.boids_patrol_separation, 1, 10)
+                self.gamePreset.boids_patrol_alignment = gui.slider_float('Patrol Alignment', self.gamePreset.boids_patrol_alignment, 1, 10)
+                self.gamePreset.boids_patrol_cohesion = gui.slider_float('Patrol Cohesion', self.gamePreset.boids_patrol_cohesion, 1, 10)
+                self.gamePreset.boids_patrol_target = gui.slider_float('Patrol Target', self.gamePreset.boids_patrol_target, 1, 10)
+                
                 gui.text('')
                 gui.text('Drone parameters:', color=TEXT_COLOR_DARK_GRAY)
                 self.gamePreset.drone_max_speed = gui.slider_int('Max Speed', self.gamePreset.drone_max_speed, 1, 100)

@@ -261,13 +261,18 @@ class DroneSwarm:
             self.alignment_modifier[None] = self.params.boids_spread_alignment
             self.cohesion_modifier[None] = self.params.boids_spread_cohesion
             self.target_weight[None] = self.params.boids_spread_target
-    
+        elif mode == 2:
+            self.separation_modifier[None] = self.params.boids_patrol_separation
+            self.alignment_modifier[None] = self.params.boids_patrol_alignment
+            self.cohesion_modifier[None] = self.params.boids_patrol_cohesion
+            self.target_weight[None] = self.params.boids_patrol_target
+            
     def update_mode(self, mode: DroneModes | None):
         if not mode:
             return 
         
         self.mode = mode
-        mode_map = {DroneModes.ATTACK: 0, DroneModes.SPREAD: 1}
+        mode_map = {DroneModes.ATTACK: 0, DroneModes.SPREAD: 1, DroneModes.PATROL: 2}
         self._update_mode(mode_map[mode])
 
     @ti.kernel

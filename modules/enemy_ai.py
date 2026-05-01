@@ -40,9 +40,9 @@ class DefendingAI:
         distance_to_player = self._get_distance_to_player(player_swarm)
         
         new_state = self.state
-        if distance_to_player < self.engage_distance or player_territory <= self.agression_threshold:
+        if distance_to_player <= self.engage_distance:
             new_state = DroneModes.ATTACK
-        elif player_territory > self.agression_threshold:
+        elif player_territory >= self.agression_threshold:
             new_state = DroneModes.SPREAD
         else:
             new_state = DroneModes.PATROL
