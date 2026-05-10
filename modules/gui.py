@@ -50,9 +50,8 @@ class GUI():
         self._init_camera()
         
         yield "Fetching Swarm references"
-        self.player_swarm = self.swarms.get_attacking_swarm()
-        self.enemy_swarm = self.swarms.get_defending_swarm()
-        self.enemy_ai = self.swarms.get_defending_ai()
+        self.attacking_swarm = self.swarms.get_attacking_swarm()
+        self.defending_swarm = self.swarms.get_defending_swarm()
         
         yield "Finalizing"
         self.start_time = time.time()
@@ -83,21 +82,21 @@ class GUI():
             self.stats_frame_counter += 1
             
             if self.stats_frame_counter % 30 == 0:
-                self.player_swarm.get_stats()
-                self.enemy_swarm.get_stats()
+                self.attacking_swarm.get_stats()
+                self.defending_swarm.get_stats()
                 self.voronoi.pull_stats()
                 self.player_territory = self.voronoi.get_territory_ratio()
                 self.stats_frame_counter = 0
                 
                 if not self.GuiState.PAUSED and not self.victory and not self.defeat:
                     current_t = time.time() - self.start_time
-                    p_count = self.player_swarm.get_alive_count()
-                    e_count = self.enemy_swarm.get_alive_count()
+                    p_count = self.attacking_swarm.get_alive_count()
+                    e_count = self.defending_swarm.get_alive_count()
                     
-                    p_dmg = self.player_swarm.total_damage[None]
-                    e_dmg = self.enemy_swarm.total_damage[None]
-                    p_deaths = self.player_swarm.death_count[None]
-                    e_deaths = self.enemy_swarm.death_count[None]
+                    p_dmg = self.attacking_swarm.total_damage[None]
+                    e_dmg = self.defending_swarm.total_damage[None]
+                    p_deaths = self.attacking_swarm.death_count[None]
+                    e_deaths = self.defending_swarm.death_count[None]
                     
                     kd = e_deaths / max(1, p_deaths)
                     
@@ -109,8 +108,8 @@ class GUI():
                     self.stats_history["damage_e"].append(e_dmg)
                     self.stats_history["kd_ratio"].append(kd)
 
-            player_count = self.player_swarm.get_alive_count()
-            enemy_count = self.enemy_swarm.get_alive_count()
+            player_count = self.attacking_swarm.get_alive_count()
+            enemy_count = self.defending_swarm.get_alive_count()
             total_drones = player_count + enemy_count
             
             if total_drones > 0:
@@ -129,8 +128,8 @@ class GUI():
             self.gui.text(f"Win percentage: {self.domination*100:.1f}%")
             self.gui.text(f"Attacking drones: {player_count}")
             self.gui.text(f"Defending drones: {enemy_count}")
-            self.gui.text(f"Attacking mode: {self.player_swarm.get_mode()}")
-            self.gui.text(f"Defending mode: {self.enemy_swarm.get_mode()}")
+            self.gui.text(f"Attacking mode: {self.attacking_swarm.get_mode()}")
+            self.gui.text(f"Defending mode: {self.defending_swarm.get_mode()}")
             
             self.gui.text(f"FPS: {1.0/(self.frame_time + 1e-5):.1f}")
             self.gui.text(f"Frame: {self.frame_time*1000:.2f}ms")
@@ -138,12 +137,12 @@ class GUI():
     @run_every_n_calls(20)
     def _calc_voronoi(self) -> None:
         self.voronoi.update(
-            self.player_swarm.get_pos_field(), 
-            self.player_swarm.N,
-            self.player_swarm.health,
-            self.enemy_swarm.get_pos_field(),
-            self.enemy_swarm.N,
-            self.enemy_swarm.health
+            self.attacking_swarm.get_pos_field(), 
+            self.attacking_swarm.N,
+            self.attacking_swarm.health,
+            self.defending_swarm.get_pos_field(),
+            self.defending_swarm.N,
+            self.defending_swarm.health
         )
         
     def update(self) -> None:

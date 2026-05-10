@@ -86,24 +86,7 @@ class DroneSwarm:
         
         
         for i in range(self.N):
-            if self.team == 0:
-                self.pos[i] = ti.Vector([
-                    -ti.random() * self.boundary,
-                    -ti.random() * self.boundary * 1.5,
-                    ti.random() * self.boundary * 1.5
-                ])
-            else:
-                self.pos[i] = ti.Vector([
-                    ti.random() * self.boundary ,
-                    ti.random() * self.boundary,
-                    ti.random() * self.boundary * 1.5
-                ])
-            
-            self.vel[i] = ti.Vector([
-                (ti.random() - 0.5) * 5.0,
-                (ti.random() - 0.5) * 5.0,
-                (ti.random() - 0.5) * 2.0
-            ])
+            self.pos[i] = self.path[0][0:3] + ti.Vector([ti.random() - 0.3, ti.random() - 0.6, ti.random() - 0.3])
             
             self.active[i] = 1
             self.health[i] = self.max_health
@@ -522,7 +505,7 @@ class DroneSwarm:
             (swarm_center[2] - current_target[2])**2
         )
         
-        if dist < self.params.map_size * 0.5:
+        if dist < self.params.map_size * 0.3:
             self.current_waypoint = (self.current_waypoint + 1) % len(self.path)
             
     def set_target(self, x: float, y: float, z: float):

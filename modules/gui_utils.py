@@ -9,7 +9,7 @@ class GuiState(str):
 
 class GamePresets:
     def __init__(self) -> None:
-        self.map_size: int = 250
+        self.map_size: int = 500
         self.game_mode = GameMode.MISSION_PLANNING
         self.attacking_drone_count: int = 1000
         self.defending_drone_count: int = 1000
@@ -19,7 +19,7 @@ class GamePresets:
         self.ai_agression_threshold: float = 0.6
         self.ai_evaluate_state: int = 15
         self.ai_execute_state: int = 20
-        self.ai_path: list[tuple[float, float, float]] = [(0.0, 0.0, 0.0), (1.0, 1.0, 0.0)]
+        self.ai_path: list[tuple[float, float, float]] = []
         self.ai_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.ai_path)
         
         #Boids
@@ -39,7 +39,7 @@ class GamePresets:
         self.boids_patrol_target: float = 1.0
         
         #Drone
-        self.attacking_path: list[tuple[float, float, float, DroneModes | None]] = [(0.0, 0.0, 0.0, DroneModes.ATTACK), (1.0, 1.0, 0.0, DroneModes.SPREAD)]
+        self.attacking_path: list[tuple[float, float, float, DroneModes | None]] = []
         self.attacking_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.attacking_path)
         self.drone_max_speed: int = 20
         self.drone_perception_radius: int = 120
@@ -116,7 +116,6 @@ class GamePresets:
             "projectile_radius": (self.projectile_radius, f"Type: int, Range: (1, 5), Default: {self.projectile_radius}"),
             "projectile_max_lifetime": (self.projectile_max_lifetime, f"Type: float, Range: (0.5, 10), Default: {self.projectile_max_lifetime}")
         }
-        
         
     def load_config(self, config: dict[str, tuple[float | int | list]] | None) -> None:
         if not config:

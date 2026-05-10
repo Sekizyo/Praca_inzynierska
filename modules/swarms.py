@@ -133,20 +133,17 @@ class Swarms():
             self.attacking_swarm.update_statistics()
             self.defending_swarm.update_statistics()
         
-        self.scene.particles(self.attacking_swarm.get_pos_field(), color=PLAYER_COLOR, radius=1.0)
-        self.scene.particles(self.defending_swarm.get_pos_field(), color=ENEMY_COLOR, radius=1.0)
+        self.scene.particles(self.attacking_swarm.get_pos_field(), color=ATTACKING_TEAM_COLOR, radius=1.0)
+        self.scene.particles(self.defending_swarm.get_pos_field(), color=DEFENDING_TEAM_COLOR, radius=1.0)
         
         self.scene.particles(self.attacking_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
         self.scene.particles(self.defending_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
         
-        self.scene.particles(self.attacking_swarm.get_target_position(), color=TARGET_COLOR, radius=5.0)
-        self.scene.particles(self.defending_swarm.get_target_position(), color=ENEMY_TARGET_COLOR, radius=5.0)
+        self.scene.particles(self.attacking_swarm.get_target_position(), color=ATTACKING_TARGET_COLOR, radius=5.0)
+        self.scene.particles(self.defending_swarm.get_target_position(), color=DEFENDING_TARGET_COLOR, radius=5.0)
         
     def get_attacking_swarm(self) -> DroneSwarm:
         return self.attacking_swarm
     
     def get_defending_swarm(self) -> DroneSwarm:
         return self.defending_swarm
-    
-    def get_defending_ai(self) -> DefendingAI:
-        return self.defending_ai

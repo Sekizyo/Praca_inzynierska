@@ -3,7 +3,7 @@ import threading
 import multiprocessing 
 from taichi.ui.canvas import SceneV2
 from taichi.ui.window import Window as TWindow
-from taichi.ui import LMB, Canvas
+from taichi.ui import LMB, RMB, Canvas
 from modules.gui import GUI
 from modules.colors import *
 import matplotlib.pyplot as plt
@@ -74,6 +74,7 @@ class Window():
 
     def _reset_planning_fields(self) -> None:
         self.planning_path_field.fill(0)
+        self.planning_ai_path_field.fill(0)
         self.gamePreset: GamePresets = GamePresets()
         
     def _render_planning_menu(self) -> None:
@@ -83,8 +84,11 @@ class Window():
             if not hasattr(self, 'planning_border_field'):
                 self.planning_border_field = ti.Vector.field(2, dtype=ti.f32, shape=8)
                 self.planning_path_field = ti.Vector.field(2, dtype=ti.f32, shape=2000)
+                self.planning_ai_path_field = ti.Vector.field(2, dtype=ti.f32, shape=2000)
                 self.planning_start_pos = ti.Vector.field(2, dtype=ti.f32, shape=2)
                 self.planning_start_col = ti.Vector.field(3, dtype=ti.f32, shape=2)
+                self.planning_start_col[0] = ATTACKING_TEAM_COLOR 
+                self.planning_start_col[1] = DEFENDING_TEAM_COLOR 
                 
             with gui.sub_window('Mission Planning', 0.05, 0.05, 0.3, 0.9):
                 gui.text('')
@@ -111,11 +115,13 @@ class Window():
                 self.gamePreset.boids_attack_cohesion = gui.slider_float('Attack Cohesion', self.gamePreset.boids_attack_cohesion, 1, 10)
                 self.gamePreset.boids_attack_target = gui.slider_float('Attack Target', self.gamePreset.boids_attack_target, 1, 10)
                 
+                gui.text('')
                 self.gamePreset.boids_spread_separation = gui.slider_float('Spread Separation', self.gamePreset.boids_spread_separation, 1, 10)
                 self.gamePreset.boids_spread_alignment = gui.slider_float('Spread Alignment', self.gamePreset.boids_spread_alignment, 1, 10)
                 self.gamePreset.boids_spread_cohesion = gui.slider_float('Spread Cohesion', self.gamePreset.boids_spread_cohesion, 1, 10)
                 self.gamePreset.boids_spread_target = gui.slider_float('Spread Target', self.gamePreset.boids_spread_target, 1, 10)
                 
+                gui.text('')
                 self.gamePreset.boids_patrol_separation = gui.slider_float('Patrol Separation', self.gamePreset.boids_patrol_separation, 1, 10)
                 self.gamePreset.boids_patrol_alignment = gui.slider_float('Patrol Alignment', self.gamePreset.boids_patrol_alignment, 1, 10)
                 self.gamePreset.boids_patrol_cohesion = gui.slider_float('Patrol Cohesion', self.gamePreset.boids_patrol_cohesion, 1, 10)
@@ -140,74 +146,113 @@ class Window():
                 
                 gui.text('')
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
-                gui.text('Green: Attacking Start', color=TEXT_COLOR_GREEN)
-                gui.text('Red: Defending Start', color=TEXT_DEFEAT_COLOR)
+                gui.text('LMB: Draw Attacking Path (Green)', color=ATTACKING_TEAM_COLOR)
+                gui.text('RMB: Draw Defending Path (Red)', color=DEFENDING_TEAM_COLOR)
 
-                if gui.button('Reset'): self._reset_planning_fields()
+                if gui.button('Reset Attack'): self.gamePreset.attacking_path = []; self.planning_path_field.fill(0)
+                if gui.button('Reset AI'): self.gamePreset.ai_path = []; self.planning_ai_path_field.fill(0)
+                if gui.button('Reset All'): self._reset_planning_fields()
                 if gui.button('Save Scenario'): gui.text("Saved successfully.") if not FileManager().create_config(self.gamePreset.generate_config_dict()) else gui.text('Failed to save scenario.', color=TEXT_DEFEAT_COLOR)
                 if gui.button('Load Scenario'): self.gamePreset.load_config(FileManager().load_config())
                     
                 gui.text('')
-                if self.gamePreset.attacking_path == []:
-                    gui.text('Please draw a attack path before starting the game.', color=TEXT_DEFEAT_COLOR)
-                if self.gamePreset.ai_path == []:
-                    gui.text('Please draw a ai path before starting the game.', color=TEXT_DEFEAT_COLOR)
-                
-                if gui.button('Start Game'): self._start_game()
+                if self.gamePreset.attacking_path == []: gui.text('Please draw a attack path before starting the game.', color=TEXT_DEFEAT_COLOR)
+                elif self.gamePreset.ai_path == []: gui.text('Please draw a ai path before starting the game.', color=TEXT_DEFEAT_COLOR)
+                elif gui.button('Start Game'): self._start_game()
 
             window_shape = self.window.get_window_shape()
             aspect_ratio = window_shape[0] / window_shape[1]
             
-            sq_h = 0.6
+            sq_h = 0.7
             sq_w = sq_h / aspect_ratio
             sq_x = 0.45 
             
             min_x, min_y = sq_x, 0.2
             max_x, max_y = sq_x + sq_w, 0.2 + sq_h
 
-            self.planning_border_field[0] = [min_x, min_y]; self.planning_border_field[1] = [max_x, min_y]
-            self.planning_border_field[2] = [max_x, min_y]; self.planning_border_field[3] = [max_x, max_y]
-            self.planning_border_field[4] = [max_x, max_y]; self.planning_border_field[5] = [min_x, max_y]
-            self.planning_border_field[6] = [min_x, max_y]; self.planning_border_field[7] = [min_x, min_y]
+            self._draw_planning_border(min_x, min_y, max_x, max_y)
+            self._draw_planning_start_positions(min_x, min_y, sq_w, sq_h)
+            self._handle_planning_mouse_input(min_x, min_y, max_x, max_y)
+            self._draw_planning_paths(min_x, min_y, max_x, max_y)
 
-            self.canvas.lines(self.planning_border_field, width=0.005, color=(1, 1, 1))
+    def _draw_planning_border(self, min_x: float, min_y: float, max_x: float, max_y: float) -> None:
+        self.planning_border_field[0] = [min_x, min_y]; self.planning_border_field[1] = [max_x, min_y]
+        self.planning_border_field[2] = [max_x, min_y]; self.planning_border_field[3] = [max_x, max_y]
+        self.planning_border_field[4] = [max_x, max_y]; self.planning_border_field[5] = [min_x, max_y]
+        self.planning_border_field[6] = [min_x, max_y]; self.planning_border_field[7] = [min_x, min_y]
+        self.canvas.lines(self.planning_border_field, width=0.005, color=(1, 1, 1))
 
-            p_x = min_x + (0.2 * sq_w)
-            p_y = min_y + (0.1 * sq_h)
-            e_x = min_x + (0.8 * sq_w)
-            e_y = min_y + (0.9 * sq_h)
+    def _draw_planning_start_positions(self, min_x: float, min_y: float, sq_w: float, sq_h: float) -> None:
+        self.planning_start_pos[0] = [min_x + (0.1 * sq_w), min_y + (0.5 * sq_h)] # Attacking Team
+        self.planning_start_pos[1] = [min_x + (0.9 * sq_w), min_y + (0.5 * sq_h)] # Defending Team
+        self.planning_path_field[0] = self.planning_start_pos[0]
+        self.planning_ai_path_field[0] = self.planning_start_pos[1]
+        self.canvas.circles(self.planning_start_pos, radius=0.015, per_vertex_color=self.planning_start_col)
 
-            self.planning_start_pos[0] = [p_x, p_y] # Gracz
-            self.planning_start_pos[1] = [e_x, e_y] # Wróg
+    def _handle_planning_mouse_input(self, min_x: float, min_y: float, max_x: float, max_y: float) -> None:
+        cx = (min_x + max_x) / 2.0
+        cy = (min_y + max_y) / 2.0
+        rx = (max_x - min_x) / 2.0
+        ry = (max_y - min_y) / 2.0
 
-            self.planning_start_col[0] = [0.2, 0.8, 0.2] # Zielony (Gracz)
-            self.planning_start_col[1] = [0.8, 0.2, 0.2] # Czerwony (Wróg)
+        if self.window.is_pressed(LMB):
+            if len(self.gamePreset.attacking_path) == 0:
+                start_pt = self.planning_start_pos[0]
+                self.gamePreset.attacking_path.append(((start_pt[0] - cx) / rx, (start_pt[1] - cy) / ry, 0.5))
+            self._try_add_path_point(self.gamePreset.attacking_path, min_x, min_y, max_x, max_y)
 
-            self.canvas.circles(self.planning_start_pos, radius=0.015, per_vertex_color=self.planning_start_col)
+        if self.window.is_pressed(RMB):
+            if len(self.gamePreset.ai_path) == 0:
+                start_pt = self.planning_start_pos[1]
+                self.gamePreset.ai_path.append(((start_pt[0] - cx) / rx, (start_pt[1] - cy) / ry, 0.5))
+            self._try_add_path_point(self.gamePreset.ai_path, min_x, min_y, max_x, max_y)
 
-            if self.window.is_pressed(LMB):
-                curr_mouse = self.window.get_cursor_pos()
-                if min_x <= curr_mouse[0] <= max_x and min_y <= curr_mouse[1] <= max_y:
-                    should_add = True
-                    if len(self.gamePreset.attacking_path) > 0:
-                        last_pt = self.gamePreset.attacking_path[-1]
-                        dist_sq = (curr_mouse[0] - last_pt[0])**2 + (curr_mouse[1] - last_pt[1])**2
-                        if dist_sq < 0.001: 
-                            should_add = False
-                    if should_add:
-                        self.gamePreset.attacking_path.append(curr_mouse)
-                        
-            path_len = len(self.gamePreset.attacking_path)
-            if path_len > 1:
-                max_segments = 1000
-                segments_to_draw = min(path_len - 1, max_segments)
-                for i in range(segments_to_draw):
-                    p_curr = self.gamePreset.attacking_path[i]
-                    p_next = self.gamePreset.attacking_path[i+1]
-                    self.planning_path_field[2*i] = [p_curr[0], p_curr[1]]
-                    self.planning_path_field[2*i+1] = [p_next[0], p_next[1]]
-                
-                self.canvas.lines(self.planning_path_field, width=0.003, color=(0, 1, 0))
+    def _try_add_path_point(self, path: list, min_x: float, min_y: float, max_x: float, max_y: float) -> None:
+        curr_mouse = self.window.get_cursor_pos()
+        if min_x <= curr_mouse[0] <= max_x and min_y <= curr_mouse[1] <= max_y:
+            
+            # Map screen position to relative center (-1 to 1 with 0,0 at center)
+            cx = (min_x + max_x) / 2.0
+            cy = (min_y + max_y) / 2.0
+            rx = (max_x - min_x) / 2.0
+            ry = (max_y - min_y) / 2.0
+            
+            # Normalized relative position:
+            rel_x = (curr_mouse[0] - cx) / rx
+            rel_y = (curr_mouse[1] - cy) / ry
+
+            if len(path) > 0:
+                last_pt = path[-1]
+                dist_sq = (rel_x - last_pt[0])**2 + (rel_y - last_pt[1])**2
+                if dist_sq < 0.001: 
+                    return
+            path.append((rel_x, rel_y, 0.5))
+
+    def _draw_planning_paths(self, min_x: float, min_y: float, max_x: float, max_y: float) -> None:
+        cx = (min_x + max_x) / 2.0
+        cy = (min_y + max_y) / 2.0
+        rx = (max_x - min_x) / 2.0
+        ry = (max_y - min_y) / 2.0
+        
+        path_len = len(self.gamePreset.attacking_path)
+        if path_len > 1:
+            segments_to_draw = min(path_len - 1, 1000)
+            for i in range(segments_to_draw):
+                p_curr = self.gamePreset.attacking_path[i]
+                p_next = self.gamePreset.attacking_path[i+1]
+                self.planning_path_field[2*i] = [p_curr[0] * rx + cx, p_curr[1] * ry + cy]
+                self.planning_path_field[2*i+1] = [p_next[0] * rx + cx, p_next[1] * ry + cy]
+            self.canvas.lines(self.planning_path_field, width=0.003, color=ATTACKING_TEAM_COLOR)
+
+        ai_path_len = len(self.gamePreset.ai_path)
+        if ai_path_len > 1:
+            segments_to_draw = min(ai_path_len - 1, 1000)
+            for i in range(segments_to_draw):
+                p_curr = self.gamePreset.ai_path[i]
+                p_next = self.gamePreset.ai_path[i+1]
+                self.planning_ai_path_field[2*i] = [p_curr[0] * rx + cx, p_curr[1] * ry + cy]
+                self.planning_ai_path_field[2*i+1] = [p_next[0] * rx + cx, p_next[1] * ry + cy]
+            self.canvas.lines(self.planning_ai_path_field, width=0.003, color=DEFENDING_TEAM_COLOR)
                 
     def _back_to_main_menu(self) -> None:
         if self.gui:
@@ -217,6 +262,9 @@ class Window():
         self.loading_frames = 0
 
     def _start_game(self) -> None:
+        self.gamePreset.attacking_path_normalized = self.gamePreset.normalize_to_world_coordinates(self.gamePreset.attacking_path)
+        self.gamePreset.ai_path_normalized = self.gamePreset.normalize_to_world_coordinates(self.gamePreset.ai_path)
+        
         self.state = self.STATE_LOADING
         self.canvas.set_background_color((0, 0, 0))
         

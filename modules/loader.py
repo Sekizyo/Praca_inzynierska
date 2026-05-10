@@ -20,6 +20,7 @@ class FileManager:
         except Exception as e:
             return None
         
+
         with open(path, 'r') as f:
             for line in f:
                 if line.strip() == '' or line.strip().startswith('#'):
@@ -32,7 +33,10 @@ class FileManager:
                 
                 try:
                     if value_str.startswith('[') and value_str.endswith(']'):
-                        value = eval(value_str)
+                        v_str = value_str.replace('ATTACK', '"attack"').replace('SPREAD', '"spread"').replace('PATROL', '"patrol"')
+                        v_str = v_str.replace('DroneModes.ATTACK', '"attack"').replace('DroneModes.SPREAD', '"spread"').replace('DroneModes.PATROL', '"patrol"')
+                        v_str = v_str.replace(', attack)', ', "attack")').replace(', spread)', ', "spread")').replace(', patrol)', ', "patrol")')
+                        value = eval(v_str)
                     elif '.' in value_str:
                         value = float(value_str)
                     else:
