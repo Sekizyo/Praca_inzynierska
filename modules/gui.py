@@ -7,6 +7,7 @@ from modules.swarms import Swarms
 from modules.voronoi import VoronoiDiagram
 from modules.gui_utils import GuiState, GamePresets
 from modules.utils import run_every_n_calls
+from modules.statistics import StatisticsLogger
 import time
 
 class GUI():
@@ -20,21 +21,15 @@ class GUI():
         self.dt: float = 0.15
         self.last_frame_time: float = time.perf_counter()
         self.stats_frame_counter: int = 0
+        self.total_frames: int = 0
         self.return_to_menu: bool = False
         self.victory: bool = False
         self.defeat: bool = False
         self.domination: float = 0.5
         self.player_territory = 50.0
         self.start_time: float = 0.0
-        self.stats_history = {
-            "time": [],
-            "player_count": [],
-            "enemy_count": [],
-            "territory": [],
-            "damage_p": [], 
-            "damage_e": [], 
-            "kd_ratio": []  
-        }
+        self.stats = StatisticsLogger()
+        self.position_frame_counter: int = 0
         
     def load(self):
         yield "Initializing Swarms"
@@ -79,9 +74,13 @@ class GUI():
             self.GuiState.SHOW_VORONOI = self.gui.checkbox("Show Voronoi", self.GuiState.SHOW_VORONOI)
             self.GuiState.SHOW_BOUNDARY = self.gui.checkbox("Show Boundary", self.GuiState.SHOW_BOUNDARY)
             
+            if not self.GuiState.PAUSED:
+                self.total_frames += 1
+                
             self.stats_frame_counter += 1
+            self.position_frame_counter += 1
             
-            if self.stats_frame_counter % 30 == 0:
+            if self.stats_frame_counter >= self.gamePreset.stats_collection_frequency:
                 self.attacking_swarm.get_stats()
                 self.defending_swarm.get_stats()
                 self.voronoi.pull_stats()
@@ -100,13 +99,23 @@ class GUI():
                     
                     kd = e_deaths / max(1, p_deaths)
                     
-                    self.stats_history["time"].append(current_t)
-                    self.stats_history["player_count"].append(p_count)
-                    self.stats_history["enemy_count"].append(e_count)
-                    self.stats_history["territory"].append(self.player_territory)
-                    self.stats_history["damage_p"].append(p_dmg)
-                    self.stats_history["damage_e"].append(e_dmg)
-                    self.stats_history["kd_ratio"].append(kd)
+                    self.stats.record(self.total_frames, current_t, p_count, e_count, 
+                                      self.player_territory, p_dmg, e_dmg, p_deaths, e_deaths, kd)
+
+            if self.position_frame_counter >= self.gamePreset.position_collection_frequency:
+                self.position_frame_counter = 0
+                
+                if not self.GuiState.PAUSED and not self.victory and not self.defeat:
+                    p_pos = self.attacking_swarm.pos.to_numpy()
+                    p_active = self.attacking_swarm.active.to_numpy().flatten()
+                    
+                    e_pos = self.defending_swarm.pos.to_numpy()
+                    e_active = self.defending_swarm.active.to_numpy().flatten()
+                    
+                    alive_p_pos = p_pos[p_active == 1]
+                    alive_e_pos = e_pos[e_active == 1]
+                    
+                    self.stats.record_positions(self.total_frames, alive_p_pos, alive_e_pos)
 
             player_count = self.attacking_swarm.get_alive_count()
             enemy_count = self.defending_swarm.get_alive_count()

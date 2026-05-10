@@ -6,52 +6,9 @@ from taichi.ui.window import Window as TWindow
 from taichi.ui import LMB, RMB, Canvas
 from modules.gui import GUI
 from modules.colors import *
-import matplotlib.pyplot as plt
 from modules.gui_utils import GamePresets
 from modules.loader import FileManager
 
-def run_plot_process(history: dict) -> None:
-    try:
-        plt.style.use('dark_background')
-        
-        fig, axs = plt.subplots(2, 2, figsize=(14, 10))
-        if fig is None: return None
-        fig.canvas.manager.set_window_title('Mission Analysis')
-        
-        axs[0, 0].plot(history['time'], history['player_count'], label='Player', color='green')
-        axs[0, 0].plot(history['time'], history['enemy_count'], label='Enemy', color='red')
-        axs[0, 0].set_title('Drone Population')
-        axs[0, 0].set_ylabel('Count')
-        axs[0, 0].legend()
-        axs[0, 0].grid(True, alpha=0.3)
-        
-        axs[0, 1].plot(history['time'], history['territory'], label='Player Control', color='cyan')
-        axs[0, 1].fill_between(history['time'], history['territory'], alpha=0.2, color='cyan')
-        axs[0, 1].axhline(y=50, color='gray', linestyle='--', alpha=0.5)
-        axs[0, 1].set_title('Territory Control (%)')
-        axs[0, 1].set_ylim(0, 100)
-        axs[0, 1].grid(True, alpha=0.3)
-        
-        axs[1, 0].plot(history['time'], history['damage_p'], label='Player Dmg', color='lightgreen')
-        axs[1, 0].plot(history['time'], history['damage_e'], label='Enemy Dmg', color='salmon')
-        axs[1, 0].set_title('Total Damage Dealt (Cumulative)')
-        axs[1, 0].set_ylabel('Damage')
-        axs[1, 0].legend()
-        axs[1, 0].grid(True, alpha=0.3)
-        
-        if 'kd_ratio' in history:
-            axs[1, 1].plot(history['time'], history['kd_ratio'], label='Player K/D', color='gold')
-            axs[1, 1].axhline(y=1.0, color='white', linestyle='--', label='Even (1.0)')
-            axs[1, 1].set_title('Kill / Death Ratio')
-            axs[1, 1].set_xlabel('Time (s)')
-            axs[1, 1].legend()
-            axs[1, 1].grid(True, alpha=0.3)
-        
-        plt.tight_layout()
-        plt.show()
-    except Exception as e:
-        raise 
-    
 class Window():
     STATE_LOADING: int = 1
     STATE_GAME: int = 2
@@ -138,6 +95,11 @@ class Window():
                 self.gamePreset.drone_hit_radius = gui.slider_int('Hit Radius', self.gamePreset.drone_hit_radius, 1, 5)
                 
                 gui.text('')
+                gui.text('Statistics parameters:', color=TEXT_COLOR_DARK_GRAY)
+                self.gamePreset.stats_collection_frequency = gui.slider_int('Collection Frequency (frames)', self.gamePreset.stats_collection_frequency, 1, 300)
+                self.gamePreset.position_collection_frequency = gui.slider_int('Position Frequency (frames)', self.gamePreset.position_collection_frequency, 1, 600)
+
+                gui.text('')
                 gui.text('Projectiles parameters:', color=TEXT_COLOR_DARK_GRAY)
                 self.gamePreset.projectile_damage = gui.slider_int('Damage', self.gamePreset.projectile_damage, 1, self.gamePreset.drone_max_health)
                 self.gamePreset.projectile_speed = gui.slider_int('Speed', self.gamePreset.projectile_speed, 1, 100)
@@ -159,6 +121,11 @@ class Window():
                 if self.gamePreset.attacking_path == []: gui.text('Please draw a attack path before starting the game.', color=TEXT_DEFEAT_COLOR)
                 elif self.gamePreset.ai_path == []: gui.text('Please draw a ai path before starting the game.', color=TEXT_DEFEAT_COLOR)
                 elif gui.button('Start Game'): self._start_game()
+                
+                gui.text('')
+                if gui.button('Visualize Saved Positions'):
+                    from modules.statistics import StatisticsLogger
+                    StatisticsLogger.show_positions_from_file(self.gamePreset.map_size)
 
             window_shape = self.window.get_window_shape()
             aspect_ratio = window_shape[0] / window_shape[1]
@@ -257,6 +224,8 @@ class Window():
     def _back_to_main_menu(self) -> None:
         if self.gui:
             self.gui.GuiState.PAUSED = True
+            if hasattr(self.gui, 'stats'):
+                self.gui.stats.save_to_csv()
         self.loader = None
         self.state = self.STATE_PLANNING
         self.loading_frames = 0
@@ -283,15 +252,16 @@ class Window():
         self.state = self.STATE_GAME
 
     def _show_mission_analysis(self) -> None:
-        if not self.gui or not hasattr(self.gui, 'stats_history'):
+        if not self.gui or not hasattr(self.gui, 'stats'):
             return
             
-        history = self.gui.stats_history
-        if not history['time']:
-            return
+        self.gui.stats.show_plot()
 
-        p = multiprocessing.Process(target=run_plot_process, args=(history,))
-        p.start()
+    def _show_spatial_analysis(self) -> None:
+        if not self.gui or not hasattr(self.gui, 'stats'):
+            return
+        
+        self.gui.stats.show_positions_plot(self.gamePreset.map_size)
 
     def _render_victory(self) -> None:
         self.canvas.set_background_color(MENU_BACKGROUND_VICTORY_COLOR)
@@ -305,6 +275,9 @@ class Window():
         
             if gui.button('Show Mission Analysis'):
                 self._show_mission_analysis()
+            
+            if gui.button('Show Spatial Analysis (Last Frame)'):
+                self._show_spatial_analysis()
             
             if gui.button('Return to Main Menu'):
                 self._back_to_main_menu()
@@ -321,6 +294,9 @@ class Window():
             
             if gui.button('Show Mission Analysis'):
                 self._show_mission_analysis()
+                
+            if gui.button('Show Spatial Analysis (Last Frame)'):
+                self._show_spatial_analysis()
         
             if gui.button('Return to Main Menu'):
                 self._back_to_main_menu()

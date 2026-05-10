@@ -49,6 +49,10 @@ class GamePresets:
         self.drone_hit_radius: int = 2
         self.drone_max_health: int = 100
         
+        # Statistics
+        self.stats_collection_frequency: int = 30
+        self.position_collection_frequency: int = 30
+        
         # Projectile
         self.projectile_speed: int = 50
         self.projectile_damage: int = 25
@@ -112,6 +116,9 @@ class GamePresets:
             "drone_shooting_perception_radius": (self.drone_shooting_perception_radius, f"Type: int, Range: (0, 360), Default: {self.drone_shooting_perception_radius}"),
             "drone_hit_radius": (self.drone_hit_radius, f"Type: int, Range: (1, 5), Default: {self.drone_hit_radius}"),
             
+            "stats_collection_frequency": (self.stats_collection_frequency, f"Type: int, Range: (1, 300), Default: {self.stats_collection_frequency}"),
+            "position_collection_frequency": (self.position_collection_frequency, f"Type: int, Range: (1, 600), Default: {self.position_collection_frequency}"),
+
             "projectile_damage": (self.projectile_damage, f"Type: int, Range: (1, drone_max_health), Default: {self.projectile_damage}"),
             "projectile_radius": (self.projectile_radius, f"Type: int, Range: (1, 5), Default: {self.projectile_radius}"),
             "projectile_max_lifetime": (self.projectile_max_lifetime, f"Type: float, Range: (0.5, 10), Default: {self.projectile_max_lifetime}")
@@ -158,6 +165,9 @@ class GamePresets:
         self.drone_shooting_perception_radius = config.get("drone_shooting_perception_radius", self.drone_shooting_perception_radius)
         self.drone_hit_radius = config.get("drone_hit_radius", self.drone_hit_radius)
         
+        self.stats_collection_frequency = config.get("stats_collection_frequency", self.stats_collection_frequency)
+        self.position_collection_frequency = config.get("position_collection_frequency", self.position_collection_frequency)
+
         self.projectile_damage = config.get("projectile_damage", self.projectile_damage)
         self.projectile_radius = config.get("projectile_radius", self.projectile_radius)
         self.projectile_max_lifetime = config.get("projectile_max_lifetime", self.projectile_max_lifetime)
