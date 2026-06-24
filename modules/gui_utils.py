@@ -21,6 +21,7 @@ class GamePresets:
         self.ai_execute_state: int = 20
         self.ai_path: list[tuple[float, float, float]] = []
         self.ai_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.ai_path)
+        self.fog_of_war: bool = False
         
         #Boids
         self.boids_attack_separation: float = 2.0
@@ -43,9 +44,9 @@ class GamePresets:
         self.attacking_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.attacking_path)
         self.drone_max_speed: int = 20
         self.drone_perception_radius: int = 120
-        self.drone_shooting_perception_radius: int = 0
+        self.drone_shooting_perception_radius: float = 0.0
         self.drone_shooting_range: int = 50
-        self.drone_shooting_cooldown: int = 2
+        self.drone_shooting_cooldown: float = 2.0
         self.drone_hit_radius: int = 2
         self.drone_max_health: int = 100
         
@@ -56,7 +57,7 @@ class GamePresets:
         # Projectile
         self.projectile_speed: int = 50
         self.projectile_damage: int = 25
-        self.projectile_max_lifetime: int = 2
+        self.projectile_max_lifetime: float = 2.0
         self.projectile_radius: int = 1
         
     def normalize_to_world_coordinates(self, points: list[tuple[float, float, float]] | list[tuple[float, float, float, DroneModes | None]] ) -> list[tuple[float, float, float, DroneModes | None]]:
@@ -91,6 +92,7 @@ class GamePresets:
             "ai_agression_threshold": (self.ai_agression_threshold, f"Type: float, Range: (0, 1), Default: {round(self.ai_agression_threshold, 2)}"),
             "ai_evaluate_state": (self.ai_evaluate_state, f"Type: int, Range: (1, 50), Default: {self.ai_evaluate_state}"),
             "ai_execute_state": (self.ai_execute_state, f"Type: int, Range: (1, 50), Default: {self.ai_execute_state}"),
+            "fog_of_war": (self.fog_of_war, f"Type: bool, Default: {self.fog_of_war}"),
             
             "boids_attack_cohesion": (self.boids_attack_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_attack_cohesion}"),
             "boids_attack_separation": (self.boids_attack_separation, f"Type: int, Range: (1, 10), Default: {self.boids_attack_separation}"),
@@ -124,50 +126,51 @@ class GamePresets:
             "projectile_max_lifetime": (self.projectile_max_lifetime, f"Type: float, Range: (0.5, 10), Default: {self.projectile_max_lifetime}")
         }
         
-    def load_config(self, config: dict[str, tuple[float | int | list]] | None) -> None:
+    def load_config(self, config: dict | None) -> None:
         if not config:
             return
         
-        self.map_size = config.get("map_size", self.map_size)
-        self.attacking_drone_count = config.get("attacking_drone_count", self.attacking_drone_count)
-        self.defending_drone_count = config.get("defending_drone_count", self.defending_drone_count)
+        self.map_size = int(config.get("map_size", self.map_size))
+        self.attacking_drone_count = int(config.get("attacking_drone_count", self.attacking_drone_count))
+        self.defending_drone_count = int(config.get("defending_drone_count", self.defending_drone_count))
         
         self.ai_path = config.get("ai_path", self.ai_path)
         self.ai_path_normalized = self.normalize_to_world_coordinates(self.ai_path)
-        self.ai_engage_distance = config.get("ai_engage_distance", self.ai_engage_distance)
-        self.ai_agression_threshold = round(config.get("ai_agression_threshold", self.ai_agression_threshold), 2)
-        self.ai_evaluate_state = config.get("ai_evaluate_state", self.ai_evaluate_state)
-        self.ai_execute_state = config.get("ai_execute_state", self.ai_execute_state)
+        self.fog_of_war = bool(config.get("fog_of_war", self.fog_of_war))
+        self.ai_engage_distance = int(config.get("ai_engage_distance", self.ai_engage_distance))
+        self.ai_agression_threshold = float(round(float(config.get("ai_agression_threshold", self.ai_agression_threshold)), 2))
+        self.ai_evaluate_state = int(config.get("ai_evaluate_state", self.ai_evaluate_state))
+        self.ai_execute_state = int(config.get("ai_execute_state", self.ai_execute_state))
         
         
-        self.boids_attack_separation = config.get("boids_attack_separation", self.boids_attack_separation)
-        self.boids_attack_alignment = config.get("boids_attack_alignment", self.boids_attack_alignment)
-        self.boids_attack_cohesion = config.get("boids_attack_cohesion", self.boids_attack_cohesion)
-        self.boids_attack_target = config.get("boids_attack_target", self.boids_attack_target)
+        self.boids_attack_separation = float(config.get("boids_attack_separation", self.boids_attack_separation))
+        self.boids_attack_alignment = float(config.get("boids_attack_alignment", self.boids_attack_alignment))
+        self.boids_attack_cohesion = float(config.get("boids_attack_cohesion", self.boids_attack_cohesion))
+        self.boids_attack_target = float(config.get("boids_attack_target", self.boids_attack_target))
 
-        self.boids_spread_separation = config.get("boids_spread_separation", self.boids_spread_separation)  
-        self.boids_spread_alignment = config.get("boids_spread_alignment", self.boids_spread_alignment)
-        self.boids_spread_cohesion = config.get("boids_spread_cohesion", self.boids_spread_cohesion)
-        self.boids_spread_target = config.get("boids_spread_target", self.boids_spread_target)
+        self.boids_spread_separation = float(config.get("boids_spread_separation", self.boids_spread_separation))  
+        self.boids_spread_alignment = float(config.get("boids_spread_alignment", self.boids_spread_alignment))
+        self.boids_spread_cohesion = float(config.get("boids_spread_cohesion", self.boids_spread_cohesion))
+        self.boids_spread_target = float(config.get("boids_spread_target", self.boids_spread_target))
 
-        self.boids_patrol_separation = config.get("boids_patrol_separation", self.boids_patrol_separation)
-        self.boids_patrol_alignment = config.get("boids_patrol_alignment", self.boids_patrol_alignment)
-        self.boids_patrol_cohesion = config.get("boids_patrol_cohesion", self.boids_patrol_cohesion)
-        self.boids_patrol_target = config.get("boids_patrol_target", self.boids_patrol_target)
+        self.boids_patrol_separation = float(config.get("boids_patrol_separation", self.boids_patrol_separation))
+        self.boids_patrol_alignment = float(config.get("boids_patrol_alignment", self.boids_patrol_alignment))
+        self.boids_patrol_cohesion = float(config.get("boids_patrol_cohesion", self.boids_patrol_cohesion))
+        self.boids_patrol_target = float(config.get("boids_patrol_target", self.boids_patrol_target))
 
         self.attacking_path = config.get("drone_path", self.attacking_path)
         self.attacking_path_normalized = self.normalize_to_world_coordinates(self.attacking_path)
-        self.drone_max_speed = config.get("drone_max_speed", self.drone_max_speed)
-        self.drone_shooting_range = config.get("drone_shooting_range", self.drone_shooting_range)
-        self.drone_shooting_cooldown = config.get("drone_shooting_cooldown", self.drone_shooting_cooldown)
-        self.drone_max_health = config.get("drone_max_health", self.drone_max_health)
-        self.drone_perception_radius = config.get("drone_perception_radius", self.drone_perception_radius)
-        self.drone_shooting_perception_radius = config.get("drone_shooting_perception_radius", self.drone_shooting_perception_radius)
-        self.drone_hit_radius = config.get("drone_hit_radius", self.drone_hit_radius)
+        self.drone_max_speed = int(config.get("drone_max_speed", self.drone_max_speed))
+        self.drone_shooting_range = int(config.get("drone_shooting_range", self.drone_shooting_range))
+        self.drone_shooting_cooldown = float(config.get("drone_shooting_cooldown", self.drone_shooting_cooldown))
+        self.drone_max_health = int(config.get("drone_max_health", self.drone_max_health))
+        self.drone_perception_radius = int(config.get("drone_perception_radius", self.drone_perception_radius))
+        self.drone_shooting_perception_radius = float(config.get("drone_shooting_perception_radius", self.drone_shooting_perception_radius))
+        self.drone_hit_radius = int(config.get("drone_hit_radius", self.drone_hit_radius))
         
-        self.stats_collection_frequency = config.get("stats_collection_frequency", self.stats_collection_frequency)
-        self.position_collection_frequency = config.get("position_collection_frequency", self.position_collection_frequency)
+        self.stats_collection_frequency = int(config.get("stats_collection_frequency", self.stats_collection_frequency))
+        self.position_collection_frequency = int(config.get("position_collection_frequency", self.position_collection_frequency))
 
-        self.projectile_damage = config.get("projectile_damage", self.projectile_damage)
-        self.projectile_radius = config.get("projectile_radius", self.projectile_radius)
-        self.projectile_max_lifetime = config.get("projectile_max_lifetime", self.projectile_max_lifetime)
+        self.projectile_damage = int(config.get("projectile_damage", self.projectile_damage))
+        self.projectile_radius = int(config.get("projectile_radius", self.projectile_radius))
+        self.projectile_max_lifetime = float(config.get("projectile_max_lifetime", self.projectile_max_lifetime))

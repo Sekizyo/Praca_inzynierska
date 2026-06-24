@@ -42,6 +42,8 @@ class DroneSwarm:
         self.acc: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         
         self.active: MatrixField = Vector.field(1, dtype=ti.i32, shape=self.N)
+        self.visible: MatrixField = Vector.field(1, dtype=ti.i32, shape=self.N)
+        self.render_pos: MatrixField = Vector.field(3, dtype=f32, shape=self.N)
         self.health: MatrixField = Vector.field(1, dtype=ti.f32, shape=self.N)
         self.cooldown: MatrixField = Vector.field(1, dtype=ti.f32, shape=self.N)
         
@@ -89,6 +91,8 @@ class DroneSwarm:
             self.pos[i] = self.path[0][0:3] + ti.Vector([ti.random() - 0.3, ti.random() - 0.6, ti.random() - 0.3])
             
             self.active[i] = 1
+            self.visible[i] = 1
+            self.render_pos[i] = self.pos[i]
             self.health[i] = self.max_health
             self.cooldown[i] = 0.0
             
@@ -100,27 +104,37 @@ class DroneSwarm:
             self.projectile_free_list[i] = i
         
         self.projectile_free_count[None] = self.max_projectiles
-            
+
     @ti.kernel
-    def update_statistics(self):
+    def update_render_pos(self, fog_of_war: int):
+        for i in range(self.N):
+            if fog_of_war == 0 or self.visible[i][0] == 1:
+                self.render_pos[i] = self.pos[i]
+            else:
+                self.render_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+
+    @ti.kernel
+    def update_statistics(self, fog_of_war: int):
         total_x = 0.0
         total_y = 0.0
         total_z = 0.0
-        count = 0
-        
+        visible_count = 0
+        alive_count = 0
         
         for i in range(self.N):
             if self.active[i][0] == 1:
-                total_x += self.pos[i][0]
-                total_y += self.pos[i][1]
-                total_z += self.pos[i][2]
-                count += 1
+                alive_count += 1
+                if fog_of_war == 0 or self.visible[i][0] == 1:
+                    total_x += self.pos[i][0]
+                    total_y += self.pos[i][1]
+                    total_z += self.pos[i][2]
+                    visible_count += 1
         
-        self.alive_count_cache[None] = count
-        self.stats[0] = ti.cast(count, ti.f32)
+        self.alive_count_cache[None] = alive_count
+        self.stats[0] = ti.cast(alive_count, ti.f32)
         
-        if count > 0:
-            inv_count = 1.0 / ti.cast(count, ti.f32)
+        if visible_count > 0:
+            inv_count = 1.0 / ti.cast(visible_count, ti.f32)
             cx = total_x * inv_count
             cy = total_y * inv_count
             cz = total_z * inv_count
@@ -525,6 +539,9 @@ class DroneSwarm:
                     
     def get_pos_field(self) -> MatrixField:
         return self.pos
+
+    def get_render_pos_field(self) -> MatrixField:
+        return self.render_pos
     
     def get_projectile_pos_field(self) -> MatrixField:
         return self.projectile_pos

@@ -26,8 +26,8 @@ class Swarms():
         self.batched_projectile_pos = ti.Vector.field(3, dtype=ti.f32, shape=self.total_projectiles)
         
         self.frame_count = 0
-        self.grid_cell_size = 64
-        self.grid_padding = 2
+        self.grid_cell_size = 128
+        self.grid_padding = 1
         self.max_cell_capacity = 300
         
         grid_dim = int(self.map_size * 2 / self.grid_cell_size) + 2 * self.grid_padding
@@ -76,8 +76,27 @@ class Swarms():
                 if idx < self.max_cell_capacity:
                     self.grid_buckets_e[gx, gy, gz, idx] = i
 
+    @ti.kernel
+    def _compute_visibility(self):
+        for i in range(self.attacking_swarm.N):
+            self.attacking_swarm.visible[i][0] = 0
+            
+        for I in ti.grouped(self.grid_count_p):
+            if self.grid_count_p[I] > 0 and self.grid_count_e[I] > 0:
+                for k in range(self.grid_count_p[I]):
+                    idx_p = self.grid_buckets_p[I, k]
+                    self.attacking_swarm.visible[idx_p][0] = 1
+
+    def update_visibility(self, fog_of_war: bool) -> None:
+        if fog_of_war:
+            self._compute_visibility()
+        fog_int = 1 if fog_of_war else 0
+        self.attacking_swarm.update_render_pos(fog_int)
+        self.defending_swarm.update_render_pos(0) # defending always visible
+
     def update_logic(self, dt: float, player_territory: float) -> None:
         self.update_shared_grid()
+        self.update_visibility(self.gamePreset.fog_of_war)
         self.frame_count += 1
         
         self.defending_ai.update(dt, self.attacking_swarm, player_territory)
@@ -129,12 +148,13 @@ class Swarms():
         )
         
     def update_draw(self) -> None:
+        fog_int = 1 if self.gamePreset.fog_of_war else 0
         if self.frame_count % 10 == 0:
-            self.attacking_swarm.update_statistics()
-            self.defending_swarm.update_statistics()
-        
-        self.scene.particles(self.attacking_swarm.get_pos_field(), color=ATTACKING_TEAM_COLOR, radius=1.0)
-        self.scene.particles(self.defending_swarm.get_pos_field(), color=DEFENDING_TEAM_COLOR, radius=1.0)
+            self.attacking_swarm.update_statistics(fog_int)
+            self.defending_swarm.update_statistics(0)
+            
+        self.scene.particles(self.attacking_swarm.get_render_pos_field(), color=ATTACKING_TEAM_COLOR, radius=1.0)
+        self.scene.particles(self.defending_swarm.get_render_pos_field(), color=DEFENDING_TEAM_COLOR, radius=1.0)
         
         self.scene.particles(self.attacking_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)
         self.scene.particles(self.defending_swarm.get_projectile_pos_field(), color=PROJECTILE_COLOR, radius=0.5)

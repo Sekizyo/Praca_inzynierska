@@ -61,6 +61,7 @@ class Window():
         self.gamePreset.ai_agression_threshold = gui.slider_float('Aggression', self.gamePreset.ai_agression_threshold, 0, 1.0)
         self.gamePreset.ai_evaluate_state = gui.slider_int('Evaluate State', self.gamePreset.ai_evaluate_state, 1, 50)
         self.gamePreset.ai_execute_state = gui.slider_int('Execute State', self.gamePreset.ai_execute_state, 1, 50)
+        self.gamePreset.fog_of_war = gui.checkbox('Fog of War', self.gamePreset.fog_of_war)
         
         gui.text('')
         gui.text('Boids parameters:', color=TEXT_COLOR_DARK_GRAY)
