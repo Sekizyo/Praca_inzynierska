@@ -6,12 +6,11 @@ from PyInstaller.utils.hooks import collect_all
 datas, binaries, hiddenimports = collect_all('taichi')
 
 args = [
-    'run.py',                        # Your entry point script
-    '--name=DroneVoronoiSim',        # Name of the executable
-    '--onefile',                     # Create a single file executable
-    '--noconsole',                   # Hide the console window
-    '--clean',                       # Clean PyInstaller cache
-    '--exclude-module=modules',      # Exclude modules from PYZ to force loading from source
+    'run.py',                       
+    '--name=DroneSim',       
+    '--onefile',
+    '--noconsole',
+    '--clean',
 ]
 
 # Add collected taichi resources
