@@ -29,5 +29,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: DroneSim-Windows
-        path: dist/DroneVoronoiSim.exe
+        path: dist/DroneSim.exe
         compression-level: 0
