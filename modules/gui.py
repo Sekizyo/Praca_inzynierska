@@ -129,10 +129,10 @@ class GUI():
                 self.domination = 0.5
             
             if self.domination >= 0.95:
-                self.victory = True
+                self.defeat = True
             
             if self.domination <= 0.05:
-                self.defeat = True
+                self.victory = True
             
             self.gui.text(f"Win percentage: {self.domination*100:.1f}%")
             self.gui.text(f"Attacking drones: {player_count}")
