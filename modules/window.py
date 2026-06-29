@@ -288,7 +288,6 @@ class Window():
             
             prev_mode = self.multirun_path_mode
             prev_runs = self.multirun_total_runs
-            self.multirun_total_runs = gui.slider_int('Number of Runs', self.multirun_total_runs, 2, 100)
             self.multirun_path_mode = gui.slider_int('Path Mode (0-3)', self.multirun_path_mode, 0, 3)
             gui.text(f"Selected: {path_modes[self.multirun_path_mode]}")
             
