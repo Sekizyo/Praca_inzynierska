@@ -1,6 +1,4 @@
-from modules.constants import GameMode
-from modules.drone import DroneModes
-
+from modules.constants import GameMode, DroneModes
 class GuiState(str):
     def __init__(self) -> None:
         self.PAUSED: bool = False

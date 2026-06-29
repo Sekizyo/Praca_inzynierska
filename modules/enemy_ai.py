@@ -4,7 +4,6 @@ from modules.constants import DroneModes
 from modules.drone import DroneSwarm
 from modules.gui_utils import GamePresets
 
-@ti.data_oriented
 class DefendingAI:
     def __init__(self, swarm: DroneSwarm, gamePreset: GamePresets) -> None:
         self.swarm = swarm

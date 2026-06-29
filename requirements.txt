@@ -34,3 +34,8 @@ taichi==1.7.4
 typing-inspection==0.4.2
 typing_extensions==4.15.0
 uvicorn==0.42.0
+pytest
+pytest-cov
+pytest-mock
+black
+pyright

@@ -24,3 +24,5 @@ lib64
 config/
 scenario/
 *.csv
+pyproject.toml
+.coverage
