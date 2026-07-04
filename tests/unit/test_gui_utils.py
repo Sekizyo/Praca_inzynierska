@@ -73,6 +73,7 @@ def test_load_config():
     new_config = {
         "map_size": 800,
         "fog_of_war": True,
+        "fog_of_war_radius": 2,
         "ai_agression_threshold": "0.855",
         "drone_path": [(0.1, 0.1, 0.1)]
     }
@@ -80,6 +81,7 @@ def test_load_config():
     
     assert presets.map_size == 800
     assert presets.fog_of_war is True
+    assert presets.fog_of_war_radius == 2
     assert presets.ai_agression_threshold == 0.85  # Python rounds 0.855 to 0.85
     
     assert len(presets.attacking_path) == 1

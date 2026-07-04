@@ -77,19 +77,27 @@ class Swarms():
                     self.grid_buckets_e[gx, gy, gz, idx] = i
 
     @ti.kernel
-    def _compute_visibility(self):
+    def _compute_visibility(self, radius: ti.i32):
         for i in range(self.attacking_swarm.N):
             self.attacking_swarm.visible[i][0] = 0
             
-        for I in ti.grouped(self.grid_count_p):
-            if self.grid_count_p[I] > 0 and self.grid_count_e[I] > 0:
-                for k in range(self.grid_count_p[I]):
-                    idx_p = self.grid_buckets_p[I, k]
-                    self.attacking_swarm.visible[idx_p][0] = 1
+        for I in ti.grouped(self.grid_count_e):
+            if self.grid_count_e[I] > 0:
+                for dx in range(-radius, radius + 1):
+                    for dy in range(-radius, radius + 1):
+                        for dz in range(-radius, radius + 1):
+                            neighbor_I = I + ti.Vector([dx, dy, dz])
+                            if (0 <= neighbor_I.x < self.grid_shape.x and 
+                                0 <= neighbor_I.y < self.grid_shape.y and 
+                                0 <= neighbor_I.z < self.grid_shape.z):
+                                if self.grid_count_p[neighbor_I] > 0:
+                                    for k in range(self.grid_count_p[neighbor_I]):
+                                        idx_p = self.grid_buckets_p[neighbor_I, k]
+                                        self.attacking_swarm.visible[idx_p][0] = 1
 
     def update_visibility(self, fog_of_war: bool) -> None:
         if fog_of_war:
-            self._compute_visibility()
+            self._compute_visibility(self.gamePreset.fog_of_war_radius)
         fog_int = 1 if fog_of_war else 0
         self.attacking_swarm.update_render_pos(fog_int)
         self.defending_swarm.update_render_pos(0) # defending always visible

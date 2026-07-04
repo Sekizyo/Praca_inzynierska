@@ -62,6 +62,8 @@ class Window():
         self.gamePreset.ai_evaluate_state = gui.slider_int('Evaluate State', self.gamePreset.ai_evaluate_state, 1, 50)
         self.gamePreset.ai_execute_state = gui.slider_int('Execute State', self.gamePreset.ai_execute_state, 1, 50)
         self.gamePreset.fog_of_war = gui.checkbox('Fog of War', self.gamePreset.fog_of_war)
+        if self.gamePreset.fog_of_war:
+            self.gamePreset.fog_of_war_radius = gui.slider_int('Fog of War Radius', self.gamePreset.fog_of_war_radius, 0, 10)
         
         gui.text('')
         gui.text('Boids parameters:', color=TEXT_COLOR_DARK_GRAY)

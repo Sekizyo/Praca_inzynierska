@@ -20,6 +20,7 @@ class GamePresets:
         self.ai_path: list[tuple[float, float, float]] = []
         self.ai_path_normalized: list[tuple[float, float, float, DroneModes | None]] = self.normalize_to_world_coordinates(self.ai_path)
         self.fog_of_war: bool = False
+        self.fog_of_war_radius: int = 0
         
         #Boids
         self.boids_attack_separation: float = 2.0
@@ -91,6 +92,7 @@ class GamePresets:
             "ai_evaluate_state": (self.ai_evaluate_state, f"Type: int, Range: (1, 50), Default: {self.ai_evaluate_state}"),
             "ai_execute_state": (self.ai_execute_state, f"Type: int, Range: (1, 50), Default: {self.ai_execute_state}"),
             "fog_of_war": (self.fog_of_war, f"Type: bool, Default: {self.fog_of_war}"),
+            "fog_of_war_radius": (self.fog_of_war_radius, f"Type: int, Range: (0, 10), Default: {self.fog_of_war_radius}"),
             
             "boids_attack_cohesion": (self.boids_attack_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_attack_cohesion}"),
             "boids_attack_separation": (self.boids_attack_separation, f"Type: int, Range: (1, 10), Default: {self.boids_attack_separation}"),
@@ -135,6 +137,7 @@ class GamePresets:
         self.ai_path = config.get("ai_path", self.ai_path)
         self.ai_path_normalized = self.normalize_to_world_coordinates(self.ai_path)
         self.fog_of_war = bool(config.get("fog_of_war", self.fog_of_war))
+        self.fog_of_war_radius = int(config.get("fog_of_war_radius", self.fog_of_war_radius))
         self.ai_engage_distance = int(config.get("ai_engage_distance", self.ai_engage_distance))
         self.ai_agression_threshold = float(round(float(config.get("ai_agression_threshold", self.ai_agression_threshold)), 2))
         self.ai_evaluate_state = int(config.get("ai_evaluate_state", self.ai_evaluate_state))
