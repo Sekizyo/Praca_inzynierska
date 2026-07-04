@@ -117,12 +117,12 @@ class GUI():
                     
                     self.stats.record_positions(self.total_frames, alive_p_pos, alive_e_pos)
 
-            player_count = self.attacking_swarm.get_alive_count()
-            enemy_count = self.defending_swarm.get_alive_count()
-            total_drones = player_count + enemy_count
-            
+            attacking_count = self.attacking_swarm.get_alive_count()
+            defending_count = self.defending_swarm.get_alive_count()
+            total_drones = attacking_count + defending_count
+
             if total_drones > 0:
-                drone_ratio = player_count / total_drones
+                drone_ratio = defending_count / total_drones
                 territory_ratio = self.player_territory / 100.0
                 self.domination = (drone_ratio * 0.8 + territory_ratio * 0.2)
             else:
@@ -134,9 +134,9 @@ class GUI():
             if self.domination <= 0.05:
                 self.victory = True
             
-            self.gui.text(f"Win percentage: {self.domination*100:.1f}%")
-            self.gui.text(f"Attacking drones: {player_count}")
-            self.gui.text(f"Defending drones: {enemy_count}")
+            self.gui.text(f"Defending swarm win percentage: {self.domination*100:.1f}%")
+            self.gui.text(f"Attacking drones: {attacking_count}")
+            self.gui.text(f"Defending drones: {defending_count}")
             self.gui.text(f"Attacking mode: {self.attacking_swarm.get_mode()}")
             self.gui.text(f"Defending mode: {self.defending_swarm.get_mode()}")
             

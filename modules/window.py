@@ -21,7 +21,6 @@ class Window():
     STATE_VICTORY: int = 3
     STATE_DEFEAT: int = 4
     STATE_PLANNING: int = 5
-    STATE_MULTIRUN_PLANNING: int = 6
     
     def __init__(self, title="Drone Sim", size=(1920, 1000)) -> None:
         ti.init(arch=ti.vulkan, default_fp=ti.f32, default_ip=ti.i32, offline_cache=True, offline_cache_file_path="ticache", offline_cache_cleaning_policy="lru", kernel_profiler=False, fast_math=True, debug=False)        
@@ -37,11 +36,12 @@ class Window():
         self.loading_frames: int = 0
         
         self.multirun_active: bool = False
-        self.multirun_total_runs: int = 5
+        self.multirun_total_runs: int = 1
         self.multirun_current_run: int = 0
         self.multirun_results: list = []
-        self.multirun_path_mode: int = 1 # 0: Manual, 1: Random, 2: Circle, 3: Line
+        self.multirun_path_mode: int = 0
         self.multirun_paths: list = []
+        self.multirun_random_points: int = 3
 
     def _reset_planning_fields(self) -> None:
         self.planning_path_field.fill(0)
@@ -50,13 +50,42 @@ class Window():
         
     def _render_common_planning_parameters(self, gui) -> None:
         gui.text('')
+        gui.text('Execution Mode:', color=TEXT_COLOR_DARK_GRAY)
+        
+        self.multirun_total_runs = gui.slider_int('Number of simulation runs', self.multirun_total_runs, 1, 100)
+        
+        gui.text('Attacking Path Strategy:', color=TEXT_COLOR_DARK_GRAY)
+        path_modes = ["Manual", "Line", "Circle", "Random"]
+        
+        prev_mode = self.multirun_path_mode
+        prev_runs = self.multirun_total_runs
+        prev_rand_pts = getattr(self, 'multirun_random_points', 3)
+
+        self.multirun_path_mode = gui.slider_int(f'Selected: {path_modes[self.multirun_path_mode]}', self.multirun_path_mode, 0, 3)
+        
+        if self.multirun_path_mode == 3:
+            self.multirun_random_points = gui.slider_int('Random Points', getattr(self, 'multirun_random_points', 3), 1, 20)
+        
+        if self.multirun_path_mode != prev_mode or self.multirun_total_runs != prev_runs or (self.multirun_path_mode == 3 and self.multirun_random_points != prev_rand_pts) or (self.multirun_path_mode != 0 and len(self.gamePreset.attacking_path) == 0):
+            if self.multirun_path_mode == 0:
+                self.gamePreset.attacking_path = []
+                self.planning_path_field.fill(0)
+                self.multirun_paths = []
+            else:
+                self._generate_multirun_path()
+
+        if self.multirun_path_mode == 3:
+            if gui.button('Regenerate Random Path'):
+                self._generate_multirun_path()
+                
+        gui.text('')
         gui.text('Critical parameters:', color=TEXT_COLOR_DARK_GRAY)
         self.gamePreset.map_size = gui.slider_int('Map size', self.gamePreset.map_size, 50, 1000)
         self.gamePreset.attacking_drone_count = gui.slider_int('Attacking Team', self.gamePreset.attacking_drone_count, 1, 8000)
         self.gamePreset.defending_drone_count = gui.slider_int('Defending Team', self.gamePreset.defending_drone_count, 1, 8000)
 
         gui.text('')
-        gui.text('AI parameters:', color=TEXT_COLOR_DARK_GRAY)
+        gui.text('Defending AI parameters:', color=TEXT_COLOR_DARK_GRAY)
         self.gamePreset.ai_engage_distance = gui.slider_int('Engage Distance', self.gamePreset.ai_engage_distance, 0, self.gamePreset.map_size)
         self.gamePreset.ai_agression_threshold = gui.slider_float('Aggression', self.gamePreset.ai_agression_threshold, 0, 1.0)
         self.gamePreset.ai_evaluate_state = gui.slider_int('Evaluate State', self.gamePreset.ai_evaluate_state, 1, 50)
@@ -120,15 +149,14 @@ class Window():
                 self.planning_start_col[1] = DEFENDING_TEAM_COLOR 
                 
             with gui.sub_window('Mission Planning', 0.05, 0.05, 0.3, 0.9):
-                gui.text('')
-                gui.text('Mission Planning', color=TEXT_COLOR_WHITE)
-                gui.text('Draw a path for drones to follow on the right panel.', color=TEXT_COLOR_LIGHT_GRAY)
-                
                 self._render_common_planning_parameters(gui)
                 
                 gui.text('')
                 gui.text('Path Planning:', color=TEXT_COLOR_LIGHT_GRAY)
-                gui.text('LMB: Draw Attacking Path (Green)', color=ATTACKING_TEAM_COLOR)
+                if self.multirun_path_mode == 0:
+                    gui.text('LMB: Draw Attacking Path (Green)', color=ATTACKING_TEAM_COLOR)
+                else:
+                    gui.text('Attacking path is generated automatically.', color=ATTACKING_TEAM_COLOR)
                 gui.text('RMB: Draw Defending Path (Red)', color=DEFENDING_TEAM_COLOR)
 
                 if gui.button('Reset Attack'): self.gamePreset.attacking_path = []; self.planning_path_field.fill(0)
@@ -137,18 +165,20 @@ class Window():
                 if gui.button('Save Scenario'): gui.text("Saved successfully.") if not FileManager().create_config(self.gamePreset.generate_config_dict()) else gui.text('Failed to save scenario.', color=TEXT_DEFEAT_COLOR)
                 if gui.button('Load Scenario'): self.gamePreset.load_config(FileManager().load_config())
                 
-                gui.text('')
-                if gui.button('Switch to Multirun Mode'): self.state = self.STATE_MULTIRUN_PLANNING
-                    
-                gui.text('')
-                if self.gamePreset.attacking_path == []: gui.text('Please draw a attack path before starting the game.', color=TEXT_DEFEAT_COLOR)
-                elif self.gamePreset.ai_path == []: gui.text('Please draw a ai path before starting the game.', color=TEXT_DEFEAT_COLOR)
-                elif gui.button('Start Game'): self._start_game()
-                
-                gui.text('')
                 if gui.button('Visualize Saved Positions'):
                     from modules.statistics import StatisticsLogger
                     StatisticsLogger.show_positions_from_file(self.gamePreset.map_size)
+                
+                gui.text('')
+                if self.gamePreset.ai_path == []: 
+                    gui.text('Please draw an AI path.', color=TEXT_DEFEAT_COLOR)
+                elif self.multirun_path_mode == 0 and self.gamePreset.attacking_path == []: 
+                    gui.text('Please draw an attack path.', color=TEXT_DEFEAT_COLOR)
+                elif gui.button('Start Simulation'): 
+                    if self.multirun_total_runs > 1:
+                        self._start_multirun()
+                    else:
+                        self._start_game()
 
             window_shape = self.window.get_window_shape()
             aspect_ratio = window_shape[0] / window_shape[1]
@@ -185,7 +215,7 @@ class Window():
         rx = (max_x - min_x) / 2.0
         ry = (max_y - min_y) / 2.0
 
-        if self.window.is_pressed(LMB):
+        if self.window.is_pressed(LMB) and self.multirun_path_mode == 0:
             if len(self.gamePreset.attacking_path) == 0:
                 start_pt = self.planning_start_pos[0]
                 self.gamePreset.attacking_path.append((float((start_pt[0] - cx) / rx), float((start_pt[1] - cy) / ry), 0.5, None))
@@ -227,7 +257,7 @@ class Window():
         rx = (max_x - min_x) / 2.0
         ry = (max_y - min_y) / 2.0
         
-        if self.state == self.STATE_MULTIRUN_PLANNING and self.multirun_path_mode == 1 and hasattr(self, 'multirun_paths') and len(self.multirun_paths) > 0:
+        if self.multirun_path_mode == 3 and hasattr(self, 'multirun_paths') and len(self.multirun_paths) > 0:
             colors = [
                 (1, 0, 0), (0, 1, 0), (0, 0, 1), (1, 1, 0), (1, 0, 1), (0, 1, 1),
                 (1, 0.5, 0), (0.5, 0, 1), (0, 0.5, 1), (0.5, 1, 0)
@@ -264,73 +294,6 @@ class Window():
                 self.planning_ai_path_field[2*i+1] = [p_next[0] * rx + cx, p_next[1] * ry + cy]
             self.canvas.lines(self.planning_ai_path_field, width=0.003, color=DEFENDING_TEAM_COLOR)
 
-    def _render_multirun_planning_menu(self) -> None:
-        self.canvas.set_background_color(MENU_BACKGROUND_COLOR)
-        gui = self.window.get_gui()
-
-        if not hasattr(self, 'planning_border_field'):
-            self.planning_border_field = ti.Vector.field(2, dtype=ti.f32, shape=8)
-            self.planning_path_field = ti.Vector.field(2, dtype=ti.f32, shape=2000)
-            self.planning_ai_path_field = ti.Vector.field(2, dtype=ti.f32, shape=2000)
-            self.planning_start_pos = ti.Vector.field(2, dtype=ti.f32, shape=2)
-            self.planning_start_col = ti.Vector.field(3, dtype=ti.f32, shape=2)
-            self.planning_start_col[0] = ATTACKING_TEAM_COLOR 
-            self.planning_start_col[1] = DEFENDING_TEAM_COLOR 
-            
-        with gui.sub_window('Multirun Planning', 0.05, 0.05, 0.3, 0.9):
-            gui.text('')
-            gui.text('Multirun Strategy', color=TEXT_COLOR_WHITE)
-            
-            gui.text('')
-            self.multirun_total_runs = gui.slider_int('Number of Runs', self.multirun_total_runs, 2, 100)
-            
-            gui.text('')
-            gui.text('Attacking Path Strategy:', color=TEXT_COLOR_DARK_GRAY)
-            path_modes = ["0: Manual", "1: Random (3 pts)", "2: Circle", "3: Line"]
-            
-            prev_mode = self.multirun_path_mode
-            prev_runs = self.multirun_total_runs
-            self.multirun_path_mode = gui.slider_int('Path Mode (0-3)', self.multirun_path_mode, 0, 3)
-            gui.text(f"Selected: {path_modes[self.multirun_path_mode]}")
-            
-            if self.multirun_path_mode != prev_mode or self.multirun_total_runs != prev_runs or (self.multirun_path_mode != 0 and len(self.gamePreset.attacking_path) == 0):
-                if self.multirun_path_mode == 0:
-                    self.gamePreset.attacking_path = []
-                    self.planning_path_field.fill(0)
-                    self.multirun_paths = []
-                else:
-                    self._generate_multirun_path()
-
-            if self.multirun_path_mode == 1:
-                if gui.button('Regenerate Random Path'):
-                    self._generate_multirun_path()
-            
-            self._render_common_planning_parameters(gui)
-            
-            gui.text('')
-            gui.text('AI Path must be drawn manually (RMB).')
-            if gui.button('Reset AI'): self.gamePreset.ai_path = []; self.planning_ai_path_field.fill(0)
-            
-            gui.text('')
-            if gui.button('Switch to Normal Mode'): self.state = self.STATE_PLANNING
-            
-            gui.text('')
-            if self.gamePreset.ai_path == []: gui.text('Please draw an AI path.', color=TEXT_DEFEAT_COLOR)
-            elif self.multirun_path_mode == 0 and self.gamePreset.attacking_path == []: gui.text('Please draw an attack path for Manual mode.', color=TEXT_DEFEAT_COLOR)
-            elif gui.button('Start Multirun'): self._start_multirun()
-
-        window_shape = self.window.get_window_shape()
-        aspect_ratio = window_shape[0] / window_shape[1]
-        sq_h = 0.7
-        sq_w = sq_h / aspect_ratio
-        sq_x = 0.45 
-        min_x, min_y = sq_x, 0.2
-        max_x, max_y = sq_x + sq_w, 0.2 + sq_h
-
-        self._draw_planning_border(min_x, min_y, max_x, max_y)
-        self._draw_planning_start_positions(min_x, min_y, sq_w, sq_h)
-        self._handle_planning_mouse_input(min_x, min_y, max_x, max_y)
-        self._draw_planning_paths(min_x, min_y, max_x, max_y)
 
     def _generate_multirun_path(self) -> None:
         self.multirun_paths = []
@@ -338,16 +301,12 @@ class Window():
             pass # Keep manual path
         elif self.multirun_path_mode == 1:
             self.planning_path_field.fill(0)
-            for _ in range(self.multirun_total_runs):
-                path = [(-0.8, 0.0, 0.5, DroneModes.ATTACK)] # Start at spawn point
-                for _ in range(3):
-                    rx = float(random.uniform(-0.8, 0.8))
-                    ry = float(random.uniform(-0.8, 0.8))
-                    mode = random.choice([DroneModes.ATTACK, DroneModes.SPREAD, DroneModes.PATROL])
-                    path.append((rx, ry, 0.5, mode))
-                self.multirun_paths.append(path)
-            if len(self.multirun_paths) > 0:
-                self.gamePreset.attacking_path = self.multirun_paths[0].copy()
+            self.gamePreset.attacking_path = [
+                (-0.7, 0.0, 0.5, DroneModes.ATTACK),
+                (0.7, 0.0, 0.5, DroneModes.SPREAD),
+                (-0.7, 0.0, 0.5, DroneModes.ATTACK)
+            ]
+            self.multirun_paths = [self.gamePreset.attacking_path] * self.multirun_total_runs
         elif self.multirun_path_mode == 2:
             self.gamePreset.attacking_path = []
             self.planning_path_field.fill(0)
@@ -360,12 +319,16 @@ class Window():
             self.multirun_paths = [self.gamePreset.attacking_path] * self.multirun_total_runs
         elif self.multirun_path_mode == 3:
             self.planning_path_field.fill(0)
-            self.gamePreset.attacking_path = [
-                (-0.7, 0.0, 0.5, DroneModes.ATTACK),
-                (0.7, 0.0, 0.5, DroneModes.SPREAD),
-                (-0.7, 0.0, 0.5, DroneModes.ATTACK)
-            ]
-            self.multirun_paths = [self.gamePreset.attacking_path] * self.multirun_total_runs
+            for _ in range(self.multirun_total_runs):
+                path = [(-0.8, 0.0, 0.5, DroneModes.ATTACK)] # Start at spawn point
+                for _ in range(self.multirun_random_points):
+                    rx = float(random.uniform(-0.8, 0.8))
+                    ry = float(random.uniform(-0.8, 0.8))
+                    mode = random.choice([DroneModes.ATTACK, DroneModes.SPREAD, DroneModes.PATROL])
+                    path.append((rx, ry, 0.5, mode))
+                self.multirun_paths.append(path)
+            if len(self.multirun_paths) > 0:
+                self.gamePreset.attacking_path = self.multirun_paths[0].copy()
 
     def _start_multirun(self) -> None:
         self.multirun_active = True
@@ -375,7 +338,7 @@ class Window():
         self._next_multirun()
 
     def _next_multirun(self) -> None:
-        if self.multirun_path_mode == 1 and self.multirun_current_run < len(self.multirun_paths):
+        if self.multirun_path_mode == 3 and self.multirun_current_run < len(self.multirun_paths):
             self.gamePreset.attacking_path = self.multirun_paths[self.multirun_current_run].copy()
             
         self.multirun_current_run += 1
@@ -383,7 +346,7 @@ class Window():
 
     def _finish_multirun(self) -> None:
         self.multirun_active = False
-        self.state = self.STATE_MULTIRUN_PLANNING
+        self.state = self.STATE_PLANNING
         
         if len(self.multirun_results) == 0:
             return
@@ -528,10 +491,6 @@ class Window():
                 self.loading_frames += 1
             elif self.state == self.STATE_PLANNING:
                 self._render_planning_menu()
-                self.window.show()
-                self.loading_frames += 1
-            elif self.state == self.STATE_MULTIRUN_PLANNING:
-                self._render_multirun_planning_menu()
                 self.window.show()
                 self.loading_frames += 1
             elif self.gui and self.gui.victory:
