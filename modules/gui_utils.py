@@ -22,21 +22,37 @@ class GamePresets:
         self.fog_of_war: bool = False
         self.fog_of_war_radius: int = 0
         
-        #Boids
-        self.boids_attack_separation: float = 2.0
-        self.boids_attack_alignment: float = 2.0
-        self.boids_attack_cohesion: float = 1.5
-        self.boids_attack_target: float = 2.0
+        # Attacking Boids
+        self.att_boids_attack_separation: float = 2.0
+        self.att_boids_attack_alignment: float = 2.0
+        self.att_boids_attack_cohesion: float = 1.5
+        self.att_boids_attack_target: float = 2.0
         
-        self.boids_spread_separation: float = 2.0
-        self.boids_spread_alignment: float = 0.7
-        self.boids_spread_cohesion: float = 0.3
-        self.boids_spread_target: float = 1.0
+        self.att_boids_spread_separation: float = 2.0
+        self.att_boids_spread_alignment: float = 0.7
+        self.att_boids_spread_cohesion: float = 0.3
+        self.att_boids_spread_target: float = 1.0
         
-        self.boids_patrol_separation: float = 2.0
-        self.boids_patrol_alignment: float = 0.7
-        self.boids_patrol_cohesion: float = 0.3
-        self.boids_patrol_target: float = 1.0
+        self.att_boids_patrol_separation: float = 2.0
+        self.att_boids_patrol_alignment: float = 0.7
+        self.att_boids_patrol_cohesion: float = 0.3
+        self.att_boids_patrol_target: float = 1.0
+        
+        # Defending Boids
+        self.def_boids_attack_separation: float = 2.0
+        self.def_boids_attack_alignment: float = 2.0
+        self.def_boids_attack_cohesion: float = 1.5
+        self.def_boids_attack_target: float = 2.0
+        
+        self.def_boids_spread_separation: float = 2.0
+        self.def_boids_spread_alignment: float = 0.7
+        self.def_boids_spread_cohesion: float = 0.3
+        self.def_boids_spread_target: float = 1.0
+        
+        self.def_boids_patrol_separation: float = 2.0
+        self.def_boids_patrol_alignment: float = 0.7
+        self.def_boids_patrol_cohesion: float = 0.3
+        self.def_boids_patrol_target: float = 1.0
         
         #Drone
         self.attacking_path: list[tuple[float, float, float, DroneModes | None]] = []
@@ -94,20 +110,35 @@ class GamePresets:
             "fog_of_war": (self.fog_of_war, f"Type: bool, Default: {self.fog_of_war}"),
             "fog_of_war_radius": (self.fog_of_war_radius, f"Type: int, Range: (0, 10), Default: {self.fog_of_war_radius}"),
             
-            "boids_attack_cohesion": (self.boids_attack_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_attack_cohesion}"),
-            "boids_attack_separation": (self.boids_attack_separation, f"Type: int, Range: (1, 10), Default: {self.boids_attack_separation}"),
-            "boids_attack_alignment": (self.boids_attack_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_attack_alignment}"),
-            "boids_attack_target": (self.boids_attack_target, f"Type: int, Range: (1, 10), Default: {self.boids_attack_target}"),
+            "att_boids_attack_cohesion": (self.att_boids_attack_cohesion, f"Type: int, Range: (1, 10), Default: {self.att_boids_attack_cohesion}"),
+            "att_boids_attack_separation": (self.att_boids_attack_separation, f"Type: int, Range: (1, 10), Default: {self.att_boids_attack_separation}"),
+            "att_boids_attack_alignment": (self.att_boids_attack_alignment, f"Type: int, Range: (1, 10), Default: {self.att_boids_attack_alignment}"),
+            "att_boids_attack_target": (self.att_boids_attack_target, f"Type: int, Range: (1, 10), Default: {self.att_boids_attack_target}"),
             
-            "boids_spread_cohesion": (self.boids_spread_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_spread_cohesion}"),
-            "boids_spread_separation": (self.boids_spread_separation, f"Type: int, Range: (1, 10), Default: {self.boids_spread_separation}"),
-            "boids_spread_alignment": (self.boids_spread_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_spread_alignment}"),
-            "boids_spread_target": (self.boids_spread_target, f"Type: int, Range: (1, 10), Default: {self.boids_spread_target}"),
+            "att_boids_spread_cohesion": (self.att_boids_spread_cohesion, f"Type: int, Range: (1, 10), Default: {self.att_boids_spread_cohesion}"),
+            "att_boids_spread_separation": (self.att_boids_spread_separation, f"Type: int, Range: (1, 10), Default: {self.att_boids_spread_separation}"),
+            "att_boids_spread_alignment": (self.att_boids_spread_alignment, f"Type: int, Range: (1, 10), Default: {self.att_boids_spread_alignment}"),
+            "att_boids_spread_target": (self.att_boids_spread_target, f"Type: int, Range: (1, 10), Default: {self.att_boids_spread_target}"),
             
-            "boids_patrol_cohesion": (self.boids_patrol_cohesion, f"Type: int, Range: (1, 10), Default: {self.boids_patrol_cohesion}"),
-            "boids_patrol_separation": (self.boids_patrol_separation, f"Type: int, Range: (1, 10), Default: {self.boids_patrol_separation}"),
-            "boids_patrol_alignment": (self.boids_patrol_alignment, f"Type: int, Range: (1, 10), Default: {self.boids_patrol_alignment}"),
-            "boids_patrol_target": (self.boids_patrol_target, f"Type: int, Range: (1, 10), Default: {self.boids_patrol_target}"),
+            "att_boids_patrol_cohesion": (self.att_boids_patrol_cohesion, f"Type: int, Range: (1, 10), Default: {self.att_boids_patrol_cohesion}"),
+            "att_boids_patrol_separation": (self.att_boids_patrol_separation, f"Type: int, Range: (1, 10), Default: {self.att_boids_patrol_separation}"),
+            "att_boids_patrol_alignment": (self.att_boids_patrol_alignment, f"Type: int, Range: (1, 10), Default: {self.att_boids_patrol_alignment}"),
+            "att_boids_patrol_target": (self.att_boids_patrol_target, f"Type: int, Range: (1, 10), Default: {self.att_boids_patrol_target}"),
+
+            "def_boids_attack_cohesion": (self.def_boids_attack_cohesion, f"Type: int, Range: (1, 10), Default: {self.def_boids_attack_cohesion}"),
+            "def_boids_attack_separation": (self.def_boids_attack_separation, f"Type: int, Range: (1, 10), Default: {self.def_boids_attack_separation}"),
+            "def_boids_attack_alignment": (self.def_boids_attack_alignment, f"Type: int, Range: (1, 10), Default: {self.def_boids_attack_alignment}"),
+            "def_boids_attack_target": (self.def_boids_attack_target, f"Type: int, Range: (1, 10), Default: {self.def_boids_attack_target}"),
+            
+            "def_boids_spread_cohesion": (self.def_boids_spread_cohesion, f"Type: int, Range: (1, 10), Default: {self.def_boids_spread_cohesion}"),
+            "def_boids_spread_separation": (self.def_boids_spread_separation, f"Type: int, Range: (1, 10), Default: {self.def_boids_spread_separation}"),
+            "def_boids_spread_alignment": (self.def_boids_spread_alignment, f"Type: int, Range: (1, 10), Default: {self.def_boids_spread_alignment}"),
+            "def_boids_spread_target": (self.def_boids_spread_target, f"Type: int, Range: (1, 10), Default: {self.def_boids_spread_target}"),
+            
+            "def_boids_patrol_cohesion": (self.def_boids_patrol_cohesion, f"Type: int, Range: (1, 10), Default: {self.def_boids_patrol_cohesion}"),
+            "def_boids_patrol_separation": (self.def_boids_patrol_separation, f"Type: int, Range: (1, 10), Default: {self.def_boids_patrol_separation}"),
+            "def_boids_patrol_alignment": (self.def_boids_patrol_alignment, f"Type: int, Range: (1, 10), Default: {self.def_boids_patrol_alignment}"),
+            "def_boids_patrol_target": (self.def_boids_patrol_target, f"Type: int, Range: (1, 10), Default: {self.def_boids_patrol_target}"),
             
             "drone_path": (self.attacking_path, f"Type: list[tuple[float, float, float, 'attack' | 'spread']], Range: (-1, 1), Default: {self.attacking_path}"),
             "drone_max_speed": (self.drone_max_speed, f"Type: int, Range: (1, 100), Default: {self.drone_max_speed}"),
@@ -144,20 +175,35 @@ class GamePresets:
         self.ai_execute_state = int(config.get("ai_execute_state", self.ai_execute_state))
         
         
-        self.boids_attack_separation = float(config.get("boids_attack_separation", self.boids_attack_separation))
-        self.boids_attack_alignment = float(config.get("boids_attack_alignment", self.boids_attack_alignment))
-        self.boids_attack_cohesion = float(config.get("boids_attack_cohesion", self.boids_attack_cohesion))
-        self.boids_attack_target = float(config.get("boids_attack_target", self.boids_attack_target))
+        self.att_boids_attack_separation = float(config.get("att_boids_attack_separation", self.att_boids_attack_separation))
+        self.att_boids_attack_alignment = float(config.get("att_boids_attack_alignment", self.att_boids_attack_alignment))
+        self.att_boids_attack_cohesion = float(config.get("att_boids_attack_cohesion", self.att_boids_attack_cohesion))
+        self.att_boids_attack_target = float(config.get("att_boids_attack_target", self.att_boids_attack_target))
 
-        self.boids_spread_separation = float(config.get("boids_spread_separation", self.boids_spread_separation))  
-        self.boids_spread_alignment = float(config.get("boids_spread_alignment", self.boids_spread_alignment))
-        self.boids_spread_cohesion = float(config.get("boids_spread_cohesion", self.boids_spread_cohesion))
-        self.boids_spread_target = float(config.get("boids_spread_target", self.boids_spread_target))
+        self.att_boids_spread_separation = float(config.get("att_boids_spread_separation", self.att_boids_spread_separation))  
+        self.att_boids_spread_alignment = float(config.get("att_boids_spread_alignment", self.att_boids_spread_alignment))
+        self.att_boids_spread_cohesion = float(config.get("att_boids_spread_cohesion", self.att_boids_spread_cohesion))
+        self.att_boids_spread_target = float(config.get("att_boids_spread_target", self.att_boids_spread_target))
 
-        self.boids_patrol_separation = float(config.get("boids_patrol_separation", self.boids_patrol_separation))
-        self.boids_patrol_alignment = float(config.get("boids_patrol_alignment", self.boids_patrol_alignment))
-        self.boids_patrol_cohesion = float(config.get("boids_patrol_cohesion", self.boids_patrol_cohesion))
-        self.boids_patrol_target = float(config.get("boids_patrol_target", self.boids_patrol_target))
+        self.att_boids_patrol_separation = float(config.get("att_boids_patrol_separation", self.att_boids_patrol_separation))
+        self.att_boids_patrol_alignment = float(config.get("att_boids_patrol_alignment", self.att_boids_patrol_alignment))
+        self.att_boids_patrol_cohesion = float(config.get("att_boids_patrol_cohesion", self.att_boids_patrol_cohesion))
+        self.att_boids_patrol_target = float(config.get("att_boids_patrol_target", self.att_boids_patrol_target))
+
+        self.def_boids_attack_separation = float(config.get("def_boids_attack_separation", self.def_boids_attack_separation))
+        self.def_boids_attack_alignment = float(config.get("def_boids_attack_alignment", self.def_boids_attack_alignment))
+        self.def_boids_attack_cohesion = float(config.get("def_boids_attack_cohesion", self.def_boids_attack_cohesion))
+        self.def_boids_attack_target = float(config.get("def_boids_attack_target", self.def_boids_attack_target))
+
+        self.def_boids_spread_separation = float(config.get("def_boids_spread_separation", self.def_boids_spread_separation))  
+        self.def_boids_spread_alignment = float(config.get("def_boids_spread_alignment", self.def_boids_spread_alignment))
+        self.def_boids_spread_cohesion = float(config.get("def_boids_spread_cohesion", self.def_boids_spread_cohesion))
+        self.def_boids_spread_target = float(config.get("def_boids_spread_target", self.def_boids_spread_target))
+
+        self.def_boids_patrol_separation = float(config.get("def_boids_patrol_separation", self.def_boids_patrol_separation))
+        self.def_boids_patrol_alignment = float(config.get("def_boids_patrol_alignment", self.def_boids_patrol_alignment))
+        self.def_boids_patrol_cohesion = float(config.get("def_boids_patrol_cohesion", self.def_boids_patrol_cohesion))
+        self.def_boids_patrol_target = float(config.get("def_boids_patrol_target", self.def_boids_patrol_target))
 
         self.attacking_path = config.get("drone_path", self.attacking_path)
         self.attacking_path_normalized = self.normalize_to_world_coordinates(self.attacking_path)

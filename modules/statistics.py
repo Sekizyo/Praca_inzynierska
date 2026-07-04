@@ -15,29 +15,29 @@ def run_plot_process(history: dict) -> None:
         if fig is None: return None
         fig.canvas.manager.set_window_title('Mission Analysis')
         
-        axs[0, 0].plot(history['time'], history['player_count'], label='Player', color='green')
-        axs[0, 0].plot(history['time'], history['enemy_count'], label='Enemy', color='red')
+        axs[0, 0].plot(history['time'], history['player_count'], label='Attacking', color='salmon')
+        axs[0, 0].plot(history['time'], history['enemy_count'], label='Defending', color='lightgreen')
         axs[0, 0].set_title('Drone Population')
         axs[0, 0].set_ylabel('Count')
         axs[0, 0].legend()
         axs[0, 0].grid(True, alpha=0.3)
         
-        axs[0, 1].plot(history['time'], history['territory'], label='Player Control', color='cyan')
-        axs[0, 1].fill_between(history['time'], history['territory'], alpha=0.2, color='cyan')
+        axs[0, 1].plot(history['time'], history['territory'], label='Attacking Control', color='salmon')
+        axs[0, 1].fill_between(history['time'], history['territory'], alpha=0.2, color='lightgreen')
         axs[0, 1].axhline(y=50, color='gray', linestyle='--', alpha=0.5)
         axs[0, 1].set_title('Territory Control (%)')
         axs[0, 1].set_ylim(0, 100)
         axs[0, 1].grid(True, alpha=0.3)
         
-        axs[1, 0].plot(history['time'], history['damage_p'], label='Player Dmg', color='lightgreen')
-        axs[1, 0].plot(history['time'], history['damage_e'], label='Enemy Dmg', color='salmon')
+        axs[1, 0].plot(history['time'], history['damage_p'], label='Attacking Dmg', color='salmon')
+        axs[1, 0].plot(history['time'], history['damage_e'], label='Defending Dmg', color='lightgreen')
         axs[1, 0].set_title('Total Damage Dealt (Cumulative)')
         axs[1, 0].set_ylabel('Damage')
         axs[1, 0].legend()
         axs[1, 0].grid(True, alpha=0.3)
         
         if 'kd_ratio' in history:
-            axs[1, 1].plot(history['time'], history['kd_ratio'], label='Player K/D', color='gold')
+            axs[1, 1].plot(history['time'], history['kd_ratio'], label='Attacking K/D', color='gold')
             axs[1, 1].axhline(y=1.0, color='white', linestyle='--', label='Even (1.0)')
             axs[1, 1].set_title('Kill / Death Ratio')
             axs[1, 1].set_xlabel('Time (s)')
@@ -59,12 +59,12 @@ def run_positions_plot_from_data(data: dict, frame: int, map_size: int) -> None:
         if len(data['attacking']) > 0:
             att_arr = np.array(data['attacking'])
             ax.scatter(att_arr[:, 0], att_arr[:, 1], att_arr[:, 2], 
-                       c='green', marker='^', label='Player Drones', s=10)
+                       c='green', marker='^', label='Attacking Drones', s=10)
         
         if len(data['defending']) > 0:
             def_arr = np.array(data['defending'])
             ax.scatter(def_arr[:, 0], def_arr[:, 1], def_arr[:, 2], 
-                       c='red', marker='v', label='Enemy Drones', s=10)
+                       c='red', marker='v', label='Defending Drones', s=10)
             
         ax.set_xlim([0, map_size])
         ax.set_ylim([0, map_size])
@@ -183,9 +183,9 @@ class StatisticsLogger:
         with open(filename, mode='w', newline='') as f:
             writer = csv.writer(f)
             writer.writerow([
-                "Frame", "TimeElapsed", "PlayerCount", "EnemyCount", 
-                "TerritoryControl", "DamagePlayer", "DamageEnemy", 
-                "DeathsPlayer", "DeathsEnemy", "KDRatio"
+                "Frame", "TimeElapsed", "AttackingCount", "DefendingCount", 
+                "TerritoryControl", "DamageAttacking", "DamageDefending", 
+                "DeathsAttacking", "DeathsDefending", "KDRatio"
             ])
             
             # Write all rows
@@ -211,9 +211,9 @@ class StatisticsLogger:
                 
                 for frame_num, data in self.positions_history.items():
                     for pt in data["attacking"]:
-                        writer.writerow([frame_num, "Player", f"{pt[0]:.2f}", f"{pt[1]:.2f}", f"{pt[2]:.2f}"])
+                        writer.writerow([frame_num, "Attacking", f"{pt[0]:.2f}", f"{pt[1]:.2f}", f"{pt[2]:.2f}"])
                     for pt in data["defending"]:
-                        writer.writerow([frame_num, "Enemy", f"{pt[0]:.2f}", f"{pt[1]:.2f}", f"{pt[2]:.2f}"])
+                        writer.writerow([frame_num, "Defending", f"{pt[0]:.2f}", f"{pt[1]:.2f}", f"{pt[2]:.2f}"])
                 
     def show_plot(self):
         if not self.stats_history['time']:

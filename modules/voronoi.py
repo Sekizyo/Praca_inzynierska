@@ -64,7 +64,7 @@ class VoronoiDiagram:
                         min_dist_sq = dist_sq
                         is_player = 0
             
-            if is_player == 1:
+            if is_player == 0:
                 ti.atomic_add(self.player_cells[None], 1)
             
             # Update vertices

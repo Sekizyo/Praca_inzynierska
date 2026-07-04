@@ -28,6 +28,8 @@ class GUI():
         self.domination: float = 0.5
         self.player_territory = 50.0
         self.start_time: float = 0.0
+        self.sim_elapsed_time: float = 0.0
+        self.last_update_time: float = 0.0
         self.stats = StatisticsLogger()
         self.position_frame_counter: int = 0
         
@@ -50,6 +52,7 @@ class GUI():
         
         yield "Finalizing"
         self.start_time = time.time()
+        self.last_update_time = time.time()
         
     def _init_camera(self) -> None:
         self.camera: Camera = Camera()
@@ -76,7 +79,13 @@ class GUI():
             
             if not self.GuiState.PAUSED:
                 self.total_frames += 1
+                current_time = time.time()
+                self.sim_elapsed_time += current_time - self.last_update_time
+                self.last_update_time = current_time
+            else:
+                self.last_update_time = time.time()
                 
+            self.gui.text(f"Simulation Time: {self.sim_elapsed_time:.2f}s")
             self.stats_frame_counter += 1
             self.position_frame_counter += 1
             
@@ -88,7 +97,7 @@ class GUI():
                 self.stats_frame_counter = 0
                 
                 if not self.GuiState.PAUSED and not self.victory and not self.defeat:
-                    current_t = time.time() - self.start_time
+                    current_t = self.sim_elapsed_time
                     p_count = self.attacking_swarm.get_alive_count()
                     e_count = self.defending_swarm.get_alive_count()
                     
@@ -129,10 +138,10 @@ class GUI():
                 self.domination = 0.5
             
             if self.domination >= 0.95:
-                self.defeat = True
+                self.victory = True
             
             if self.domination <= 0.05:
-                self.victory = True
+                self.defeat = True
             
             self.gui.text(f"Defending swarm win percentage: {self.domination*100:.1f}%")
             self.gui.text(f"Attacking drones: {attacking_count}")

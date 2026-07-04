@@ -1,6 +1,5 @@
 import taichi as ti
 import threading
-import multiprocessing 
 import random
 import math
 import os
@@ -95,24 +94,44 @@ class Window():
             self.gamePreset.fog_of_war_radius = gui.slider_int('Fog of War Radius', self.gamePreset.fog_of_war_radius, 0, 10)
         
         gui.text('')
-        gui.text('Boids parameters:', color=TEXT_COLOR_DARK_GRAY)
-        self.gamePreset.boids_attack_separation = gui.slider_float('Attack Separation', self.gamePreset.boids_attack_separation, 1, 10)
-        self.gamePreset.boids_attack_alignment = gui.slider_float('Attack Alignment', self.gamePreset.boids_attack_alignment, 1, 10)
-        self.gamePreset.boids_attack_cohesion = gui.slider_float('Attack Cohesion', self.gamePreset.boids_attack_cohesion, 1, 10)
-        self.gamePreset.boids_attack_target = gui.slider_float('Attack Target', self.gamePreset.boids_attack_target, 1, 10)
+        gui.text('Attacking swarm Boids parameters:', color=TEXT_COLOR_DARK_GRAY)
+        
+        self.gamePreset.att_boids_attack_separation = gui.slider_float('[A] Attack Separation', self.gamePreset.att_boids_attack_separation, 1, 10)
+        self.gamePreset.att_boids_attack_alignment = gui.slider_float('[A] Attack Alignment', self.gamePreset.att_boids_attack_alignment, 1, 10)
+        self.gamePreset.att_boids_attack_cohesion = gui.slider_float('[A] Attack Cohesion', self.gamePreset.att_boids_attack_cohesion, 1, 10)
+        self.gamePreset.att_boids_attack_target = gui.slider_float('[A] Attack Target', self.gamePreset.att_boids_attack_target, 1, 10)
         
         gui.text('')
-        self.gamePreset.boids_spread_separation = gui.slider_float('Spread Separation', self.gamePreset.boids_spread_separation, 1, 10)
-        self.gamePreset.boids_spread_alignment = gui.slider_float('Spread Alignment', self.gamePreset.boids_spread_alignment, 1, 10)
-        self.gamePreset.boids_spread_cohesion = gui.slider_float('Spread Cohesion', self.gamePreset.boids_spread_cohesion, 1, 10)
-        self.gamePreset.boids_spread_target = gui.slider_float('Spread Target', self.gamePreset.boids_spread_target, 1, 10)
+        self.gamePreset.att_boids_spread_separation = gui.slider_float('[A] Spread Separation', self.gamePreset.att_boids_spread_separation, 1, 10)
+        self.gamePreset.att_boids_spread_alignment = gui.slider_float('[A] Spread Alignment', self.gamePreset.att_boids_spread_alignment, 1, 10)
+        self.gamePreset.att_boids_spread_cohesion = gui.slider_float('[A] Spread Cohesion', self.gamePreset.att_boids_spread_cohesion, 1, 10)
+        self.gamePreset.att_boids_spread_target = gui.slider_float('[A] Spread Target', self.gamePreset.att_boids_spread_target, 1, 10)
         
         gui.text('')
-        self.gamePreset.boids_patrol_separation = gui.slider_float('Patrol Separation', self.gamePreset.boids_patrol_separation, 1, 10)
-        self.gamePreset.boids_patrol_alignment = gui.slider_float('Patrol Alignment', self.gamePreset.boids_patrol_alignment, 1, 10)
-        self.gamePreset.boids_patrol_cohesion = gui.slider_float('Patrol Cohesion', self.gamePreset.boids_patrol_cohesion, 1, 10)
-        self.gamePreset.boids_patrol_target = gui.slider_float('Patrol Target', self.gamePreset.boids_patrol_target, 1, 10)
+        self.gamePreset.att_boids_patrol_separation = gui.slider_float('[A] Patrol Separation', self.gamePreset.att_boids_patrol_separation, 1, 10)
+        self.gamePreset.att_boids_patrol_alignment = gui.slider_float('[A] Patrol Alignment', self.gamePreset.att_boids_patrol_alignment, 1, 10)
+        self.gamePreset.att_boids_patrol_cohesion = gui.slider_float('[A] Patrol Cohesion', self.gamePreset.att_boids_patrol_cohesion, 1, 10)
+        self.gamePreset.att_boids_patrol_target = gui.slider_float('[A] Patrol Target', self.gamePreset.att_boids_patrol_target, 1, 10)
         
+        gui.text('')
+        gui.text('Defending swarm Boids parameters:', color=TEXT_COLOR_DARK_GRAY)
+        self.gamePreset.def_boids_attack_separation = gui.slider_float('[D] Attack Separation', self.gamePreset.def_boids_attack_separation, 1, 10)
+        self.gamePreset.def_boids_attack_alignment = gui.slider_float('[D] Attack Alignment', self.gamePreset.def_boids_attack_alignment, 1, 10)
+        self.gamePreset.def_boids_attack_cohesion = gui.slider_float('[D] Attack Cohesion', self.gamePreset.def_boids_attack_cohesion, 1, 10)
+        self.gamePreset.def_boids_attack_target = gui.slider_float('[D] Attack Target', self.gamePreset.def_boids_attack_target, 1, 10)
+        
+        gui.text('')
+        self.gamePreset.def_boids_spread_separation = gui.slider_float('[D] Spread Separation', self.gamePreset.def_boids_spread_separation, 1, 10)
+        self.gamePreset.def_boids_spread_alignment = gui.slider_float('[D] Spread Alignment', self.gamePreset.def_boids_spread_alignment, 1, 10)
+        self.gamePreset.def_boids_spread_cohesion = gui.slider_float('[D] Spread Cohesion', self.gamePreset.def_boids_spread_cohesion, 1, 10)
+        self.gamePreset.def_boids_spread_target = gui.slider_float('[D] Spread Target', self.gamePreset.def_boids_spread_target, 1, 10)
+        
+        gui.text('')
+        self.gamePreset.def_boids_patrol_separation = gui.slider_float('[D] Patrol Separation', self.gamePreset.def_boids_patrol_separation, 1, 10)
+        self.gamePreset.def_boids_patrol_alignment = gui.slider_float('[D] Patrol Alignment', self.gamePreset.def_boids_patrol_alignment, 1, 10)
+        self.gamePreset.def_boids_patrol_cohesion = gui.slider_float('[D] Patrol Cohesion', self.gamePreset.def_boids_patrol_cohesion, 1, 10)
+        self.gamePreset.def_boids_patrol_target = gui.slider_float('[D] Patrol Target', self.gamePreset.def_boids_patrol_target, 1, 10)
+    
         gui.text('')
         gui.text('Drone parameters:', color=TEXT_COLOR_DARK_GRAY)
         self.gamePreset.drone_max_speed = gui.slider_int('Max Speed', self.gamePreset.drone_max_speed, 1, 100)
@@ -356,7 +375,7 @@ class Window():
         
         with open(filename, mode='w', newline='') as f:
             writer = csv.writer(f)
-            writer.writerow(["Run", "Win", "Time", "PlayerCount", "EnemyCount", "DamagePlayer", "DamageEnemy", "KDRatio"])
+            writer.writerow(["Run", "Win", "Time", "AttackingCount", "DefendingCount", "DamageAttacking", "DamageDefending", "KDRatio"])
             
             wins = 0
             t_time = 0; t_pc = 0; t_ec = 0; t_dp = 0; t_de = 0; t_kd = 0

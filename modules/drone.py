@@ -79,9 +79,9 @@ class DroneSwarm:
 
     @ti.kernel
     def _initialize(self):
-        self.separation_modifier[None] = 5.0
-        self.alignment_modifier[None] = 0.1
-        self.cohesion_modifier[None] = 0.1
+        self.separation_modifier[None] = 1.0
+        self.alignment_modifier[None] = 1.0
+        self.cohesion_modifier[None] = 1.0
         self.target_weight[None] = 0.5
         self.total_damage[None] = 0.0
         self.death_count[None] = 0
@@ -247,23 +247,39 @@ class DroneSwarm:
                 steer_ali * self.alignment_modifier[None] + 
                 steer_coh * self.cohesion_modifier[None])
 
-    @ti.kernel
     def _update_mode(self, mode: int):
-        if mode == 0:
-            self.separation_modifier[None] = self.params.boids_attack_separation
-            self.alignment_modifier[None] = self.params.boids_attack_alignment
-            self.cohesion_modifier[None] = self.params.boids_attack_cohesion
-            self.target_weight[None] = self.params.boids_attack_target
-        elif mode == 1:
-            self.separation_modifier[None] = self.params.boids_spread_separation
-            self.alignment_modifier[None] = self.params.boids_spread_alignment
-            self.cohesion_modifier[None] = self.params.boids_spread_cohesion
-            self.target_weight[None] = self.params.boids_spread_target
-        elif mode == 2:
-            self.separation_modifier[None] = self.params.boids_patrol_separation
-            self.alignment_modifier[None] = self.params.boids_patrol_alignment
-            self.cohesion_modifier[None] = self.params.boids_patrol_cohesion
-            self.target_weight[None] = self.params.boids_patrol_target
+        if self.team == 0:
+            if mode == 0:
+                self.separation_modifier[None] = self.params.att_boids_attack_separation
+                self.alignment_modifier[None] = self.params.att_boids_attack_alignment
+                self.cohesion_modifier[None] = self.params.att_boids_attack_cohesion
+                self.target_weight[None] = self.params.att_boids_attack_target
+            elif mode == 1:
+                self.separation_modifier[None] = self.params.att_boids_spread_separation
+                self.alignment_modifier[None] = self.params.att_boids_spread_alignment
+                self.cohesion_modifier[None] = self.params.att_boids_spread_cohesion
+                self.target_weight[None] = self.params.att_boids_spread_target
+            elif mode == 2:
+                self.separation_modifier[None] = self.params.att_boids_patrol_separation
+                self.alignment_modifier[None] = self.params.att_boids_patrol_alignment
+                self.cohesion_modifier[None] = self.params.att_boids_patrol_cohesion
+                self.target_weight[None] = self.params.att_boids_patrol_target
+        else:
+            if mode == 0:
+                self.separation_modifier[None] = self.params.def_boids_attack_separation
+                self.alignment_modifier[None] = self.params.def_boids_attack_alignment
+                self.cohesion_modifier[None] = self.params.def_boids_attack_cohesion
+                self.target_weight[None] = self.params.def_boids_attack_target
+            elif mode == 1:
+                self.separation_modifier[None] = self.params.def_boids_spread_separation
+                self.alignment_modifier[None] = self.params.def_boids_spread_alignment
+                self.cohesion_modifier[None] = self.params.def_boids_spread_cohesion
+                self.target_weight[None] = self.params.def_boids_spread_target
+            elif mode == 2:
+                self.separation_modifier[None] = self.params.def_boids_patrol_separation
+                self.alignment_modifier[None] = self.params.def_boids_patrol_alignment
+                self.cohesion_modifier[None] = self.params.def_boids_patrol_cohesion
+                self.target_weight[None] = self.params.def_boids_patrol_target
             
     def update_mode(self, mode: DroneModes | None):
         if not mode:
