@@ -1,4 +1,6 @@
 import math
+import numpy as np
+import random
 
 import taichi as ti
 
@@ -77,8 +79,21 @@ class DroneSwarm:
         
         self._initialize()
 
-    @ti.kernel
     def _initialize(self):
+        self._initialize_fields()
+        
+        pos_np = np.zeros((self.N, 3), dtype=np.float32)
+        px, py, pz = self.path[0][0:3]
+        for i in range(self.N):
+            pos_np[i, 0] = px + random.uniform(-0.3, 0.7)
+            pos_np[i, 1] = py + random.uniform(-0.6, 0.4)
+            pos_np[i, 2] = pz + random.uniform(-0.3, 0.7)
+            
+        self.pos.from_numpy(pos_np)
+        self.render_pos.from_numpy(pos_np)
+        
+    @ti.kernel
+    def _initialize_fields(self):
         self.separation_modifier[None] = 1.0
         self.alignment_modifier[None] = 1.0
         self.cohesion_modifier[None] = 1.0
@@ -86,9 +101,8 @@ class DroneSwarm:
         self.total_damage[None] = 0.0
         self.death_count[None] = 0
         
-        
         for i in range(self.N):
-            self.pos[i] = self.path[0][0:3] + ti.Vector([ti.random() - 0.3, ti.random() - 0.6, ti.random() - 0.3])
+            self.pos[i] = self.path[0][0:3]
             
             self.active[i] = 1
             self.visible[i] = 1

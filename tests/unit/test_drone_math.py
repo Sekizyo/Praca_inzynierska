@@ -13,9 +13,10 @@ def test_presets():
     presets.map_size = 1000
     presets.drone_max_speed = 20.0
     # Use attack mode multipliers
-    presets.boids_attack_separation = 1.0
-    presets.boids_attack_alignment = 1.0
-    presets.boids_attack_cohesion = 1.0
+    presets.att_boids_attack_separation = 1.0
+    presets.att_boids_attack_alignment = 1.0
+    presets.att_boids_attack_cohesion = 1.0
+    presets.att_boids_attack_target = 0.0
     presets.drone_perception_radius = 100.0
     presets.attacking_path_normalized = [(500.0, 500.0, 500.0, None)]
     presets.ai_path_normalized = [(500.0, 500.0, 500.0, None)]
@@ -51,9 +52,10 @@ def setup_grid(swarm, positions):
     return grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset
 
 def test_flocking_separation(test_presets):
-    test_presets.boids_attack_alignment = 0.0
-    test_presets.boids_attack_cohesion = 0.0
-    test_presets.boids_attack_separation = 1.0
+    test_presets.att_boids_attack_alignment = 0.0
+    test_presets.att_boids_attack_cohesion = 0.0
+    test_presets.att_boids_attack_separation = 1.0
+    test_presets.att_boids_attack_target = 0.0
     
     swarm = DroneSwarm(test_presets, 0)
     swarm.update_mode(swarm.mode)
@@ -86,9 +88,10 @@ def test_flocking_separation(test_presets):
     assert abs(force.z) < 1e-5
 
 def test_flocking_alignment(test_presets):
-    test_presets.boids_attack_alignment = 1.0
-    test_presets.boids_attack_cohesion = 0.0
-    test_presets.boids_attack_separation = 0.0
+    test_presets.att_boids_attack_alignment = 1.0
+    test_presets.att_boids_attack_cohesion = 0.0
+    test_presets.att_boids_attack_separation = 0.0
+    test_presets.att_boids_attack_target = 0.0
     # Need them to be outside separation radius (radius*0.6 = 60) but inside alignment radius (100)
     
     swarm = DroneSwarm(test_presets, 0)
@@ -120,9 +123,10 @@ def test_flocking_alignment(test_presets):
     assert abs(force.z) < 1e-5
 
 def test_flocking_cohesion(test_presets):
-    test_presets.boids_attack_alignment = 0.0
-    test_presets.boids_attack_cohesion = 1.0
-    test_presets.boids_attack_separation = 0.0
+    test_presets.att_boids_attack_alignment = 0.0
+    test_presets.att_boids_attack_cohesion = 1.0
+    test_presets.att_boids_attack_separation = 0.0
+    test_presets.att_boids_attack_target = 0.0
     
     swarm = DroneSwarm(test_presets, 0)
     swarm.update_mode(swarm.mode)
@@ -203,10 +207,14 @@ def test_combat_fov_and_distance(test_presets):
     populate_enemy_grid()
     
     assert swarm.projectile_active[0] == 0
+    obstacle_count = 0
+    obstacle_pos = ti.Vector.field(3, dtype=ti.f32, shape=1)
+    obstacle_radius = ti.field(dtype=ti.f32, shape=1)
     
     swarm.batched_combat_update(
         0.1, enemy_pos, enemy_count, enemy_health,
-        grid_count, grid_buckets, grid_offset, grid_shape, grid_cell_size, grid_padding
+        grid_count, grid_buckets, grid_offset, grid_shape, grid_cell_size, grid_padding,
+        obstacle_pos, obstacle_radius, obstacle_count
     )
     
     # Check projectiles
@@ -248,8 +256,12 @@ def test_boundary_forces(test_presets):
         for I in ti.grouped(grid_count):
             grid_count[I] = 0
     clear_grid()
+    obstacle_count = 0
+    obstacle_pos = ti.Vector.field(3, dtype=ti.f32, shape=1)
+    obstacle_radius = ti.field(dtype=ti.f32, shape=1)
     
-    swarm.update(0.1, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
+    swarm.update(0.1, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset,
+                 obstacle_pos, obstacle_radius, obstacle_count)
     
     # The boundary is 1000, margin is 10. Max boundary = 990.
     # Drone is at 995, so it's past the margin, should be repelled.
