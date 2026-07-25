@@ -11,6 +11,7 @@ class GamePresets:
         self.game_mode = GameMode.MISSION_PLANNING
         self.attacking_drone_count: int = 1000
         self.defending_drone_count: int = 1000
+        self.random_seed: int = 42
         
         # Obstacles
         self.obstacle_count: int = 20
@@ -106,6 +107,7 @@ class GamePresets:
             "map_size": (self.map_size, f"Type: int, Range: (50, 1000), Default: {self.map_size}"),
             "attacking_drone_count": (self.attacking_drone_count, f"Type: int, Range: (1, 8000), Default: {self.attacking_drone_count}"),
             "defending_drone_count": (self.defending_drone_count, f"Type: int, Range: (1, 8000), Default: {self.defending_drone_count}"),
+            "random_seed": (self.random_seed, f"Type: int, Range: (0, 10000), Default: {self.random_seed}"),
             
             "obstacle_count": (self.obstacle_count, f"Type: int, Range: (0, 100), Default: {self.obstacle_count}"),
             "obstacle_min_radius": (self.obstacle_min_radius, f"Type: int, Range: (1, 50), Default: {self.obstacle_min_radius}"),
@@ -173,6 +175,7 @@ class GamePresets:
         self.map_size = int(config.get("map_size", self.map_size))
         self.attacking_drone_count = int(config.get("attacking_drone_count", self.attacking_drone_count))
         self.defending_drone_count = int(config.get("defending_drone_count", self.defending_drone_count))
+        self.random_seed = int(config.get("random_seed", self.random_seed))
         
         self.obstacle_count = int(config.get("obstacle_count", self.obstacle_count))
         self.obstacle_min_radius = int(config.get("obstacle_min_radius", self.obstacle_min_radius))

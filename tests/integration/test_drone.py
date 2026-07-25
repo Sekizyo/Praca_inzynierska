@@ -42,9 +42,14 @@ def test_drone_swarm_movement(test_presets):
     
     initial_center = swarm.get_swarm_center()
     
+    # Fake obstacle data
+    obstacle_count = 0
+    obstacle_pos = ti.Vector.field(3, dtype=ti.f32, shape=1)
+    obstacle_radius = ti.field(dtype=ti.f32, shape=1)
+    
     # Run a few updates
     for _ in range(10):
-        swarm.update(0.1, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
+        swarm.update(0.1, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset, obstacle_pos, obstacle_radius, obstacle_count)
         swarm.update_statistics(0)
     
     new_center = swarm.get_swarm_center()

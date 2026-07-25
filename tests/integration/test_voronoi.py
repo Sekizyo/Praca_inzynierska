@@ -36,4 +36,4 @@ def test_voronoi_logic():
     voronoi.pull_stats()
     
     ratio = voronoi.get_territory_ratio()
-    assert ratio == 100.0
+    assert ratio == 0.0

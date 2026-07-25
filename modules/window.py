@@ -85,6 +85,7 @@ class Window():
 
         gui.text('')
         gui.text('Environment parameters:', color=TEXT_COLOR_DARK_GRAY)
+        self.gamePreset.random_seed = gui.slider_int('Random Seed', self.gamePreset.random_seed, 0, 10000)
         self.gamePreset.obstacle_count = gui.slider_int('Obstacle Count', self.gamePreset.obstacle_count, 0, 100)
         self.gamePreset.obstacle_min_radius = gui.slider_int('Obstacle Min Radius', self.gamePreset.obstacle_min_radius, 1, 50)
         self.gamePreset.obstacle_max_radius = gui.slider_int('Obstacle Max Radius', self.gamePreset.obstacle_max_radius, 1, 50)

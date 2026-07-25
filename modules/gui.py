@@ -9,6 +9,7 @@ from modules.gui_utils import GuiState, GamePresets
 from modules.utils import run_every_n_calls
 from modules.statistics import StatisticsLogger
 import time
+import random
 
 class GUI():
     def __init__(self, gui: Gui, window: TWindow, scene: SceneV2, gamePreset: GamePresets) -> None:
@@ -34,6 +35,7 @@ class GUI():
         self.position_frame_counter: int = 0
         
     def load(self):
+        random.seed(self.gamePreset.random_seed)
         yield "Initializing Swarms"
         self.swarms: Swarms = Swarms(self.scene, self.gamePreset)
         
