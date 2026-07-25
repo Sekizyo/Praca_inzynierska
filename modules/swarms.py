@@ -102,7 +102,7 @@ class Swarms():
         self.attacking_swarm.update_render_pos(fog_int)
         self.defending_swarm.update_render_pos(0) # defending always visible
 
-    def update_logic(self, dt: float, player_territory: float) -> None:
+    def update_logic(self, dt: float, player_territory: float, obstacle_pos: ti.template(), obstacle_radius: ti.template(), obstacle_count: int) -> None:
         self.update_shared_grid()
         self.update_visibility(self.gamePreset.fog_of_war)
         self.frame_count += 1
@@ -117,7 +117,10 @@ class Swarms():
             self.grid_cell_size,
             self.grid_shape,
             self.grid_padding,
-            self.grid_offset
+            self.grid_offset,
+            obstacle_pos,
+            obstacle_radius,
+            obstacle_count
         )
         self.defending_swarm.update(
             dt, 
@@ -126,7 +129,10 @@ class Swarms():
             self.grid_cell_size,
             self.grid_shape,
             self.grid_padding,
-            self.grid_offset
+            self.grid_offset,
+            obstacle_pos,
+            obstacle_radius,
+            obstacle_count
         )
         
         self.attacking_swarm.batched_combat_update(
@@ -139,7 +145,10 @@ class Swarms():
             self.grid_offset,
             self.grid_shape,
             self.grid_cell_size,
-            self.grid_padding
+            self.grid_padding,
+            obstacle_pos,
+            obstacle_radius,
+            obstacle_count
         )
         
         self.defending_swarm.batched_combat_update(
@@ -152,7 +161,10 @@ class Swarms():
             self.grid_offset,
             self.grid_shape,
             self.grid_cell_size,
-            self.grid_padding
+            self.grid_padding,
+            obstacle_pos,
+            obstacle_radius,
+            obstacle_count
         )
         
     def update_draw(self) -> None:

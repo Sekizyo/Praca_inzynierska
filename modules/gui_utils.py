@@ -12,6 +12,11 @@ class GamePresets:
         self.attacking_drone_count: int = 1000
         self.defending_drone_count: int = 1000
         
+        # Obstacles
+        self.obstacle_count: int = 20
+        self.obstacle_min_radius: int = 5
+        self.obstacle_max_radius: int = 25
+        
         #AI
         self.ai_engage_distance: int = 150
         self.ai_agression_threshold: float = 0.6
@@ -102,6 +107,10 @@ class GamePresets:
             "attacking_drone_count": (self.attacking_drone_count, f"Type: int, Range: (1, 8000), Default: {self.attacking_drone_count}"),
             "defending_drone_count": (self.defending_drone_count, f"Type: int, Range: (1, 8000), Default: {self.defending_drone_count}"),
             
+            "obstacle_count": (self.obstacle_count, f"Type: int, Range: (0, 100), Default: {self.obstacle_count}"),
+            "obstacle_min_radius": (self.obstacle_min_radius, f"Type: int, Range: (1, 50), Default: {self.obstacle_min_radius}"),
+            "obstacle_max_radius": (self.obstacle_max_radius, f"Type: int, Range: (1, 50), Default: {self.obstacle_max_radius}"),
+            
             "ai_path": (self.ai_path, f"Type: list[tuple[float, float, float]], Range: (-1, 1), Default: {self.ai_path}"),
             "ai_engage_distance": (self.ai_engage_distance, f"Type: int, Range: (0, map_size), Default: {self.ai_engage_distance}"),
             "ai_agression_threshold": (self.ai_agression_threshold, f"Type: float, Range: (0, 1), Default: {round(self.ai_agression_threshold, 2)}"),
@@ -164,6 +173,10 @@ class GamePresets:
         self.map_size = int(config.get("map_size", self.map_size))
         self.attacking_drone_count = int(config.get("attacking_drone_count", self.attacking_drone_count))
         self.defending_drone_count = int(config.get("defending_drone_count", self.defending_drone_count))
+        
+        self.obstacle_count = int(config.get("obstacle_count", self.obstacle_count))
+        self.obstacle_min_radius = int(config.get("obstacle_min_radius", self.obstacle_min_radius))
+        self.obstacle_max_radius = int(config.get("obstacle_max_radius", self.obstacle_max_radius))
         
         self.ai_path = config.get("ai_path", self.ai_path)
         self.ai_path_normalized = self.normalize_to_world_coordinates(self.ai_path)

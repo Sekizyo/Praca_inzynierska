@@ -84,6 +84,12 @@ class Window():
         self.gamePreset.defending_drone_count = gui.slider_int('Defending Team', self.gamePreset.defending_drone_count, 1, 8000)
 
         gui.text('')
+        gui.text('Environment parameters:', color=TEXT_COLOR_DARK_GRAY)
+        self.gamePreset.obstacle_count = gui.slider_int('Obstacle Count', self.gamePreset.obstacle_count, 0, 100)
+        self.gamePreset.obstacle_min_radius = gui.slider_int('Obstacle Min Radius', self.gamePreset.obstacle_min_radius, 1, 50)
+        self.gamePreset.obstacle_max_radius = gui.slider_int('Obstacle Max Radius', self.gamePreset.obstacle_max_radius, 1, 50)
+
+        gui.text('')
         gui.text('Defending AI parameters:', color=TEXT_COLOR_DARK_GRAY)
         self.gamePreset.ai_engage_distance = gui.slider_int('Engage Distance', self.gamePreset.ai_engage_distance, 0, self.gamePreset.map_size)
         self.gamePreset.ai_agression_threshold = gui.slider_float('Aggression', self.gamePreset.ai_agression_threshold, 0, 1.0)

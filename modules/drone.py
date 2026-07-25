@@ -296,7 +296,10 @@ class DroneSwarm:
                grid_cell_size: ti.f32, 
                grid_shape: ti.types.vector(3, ti.i32), 
                grid_padding: ti.i32, 
-               grid_offset: ti.types.vector(3, ti.f32)):
+               grid_offset: ti.types.vector(3, ti.f32),
+               obstacle_pos: ti.template(),
+               obstacle_radius: ti.template(),
+               obstacle_count: ti.i32):
         
         target_weight_val = self.target_weight[None]
         boundary_val = self.boundary
@@ -311,6 +314,24 @@ class DroneSwarm:
             
             flocking_force = self.calculate_flocking(i, pos_val, vel_val, grid_count, grid_buckets, grid_cell_size, grid_shape, grid_padding, grid_offset)
             acc_val += flocking_force
+            
+            # Obstacle avoidance force
+            avoidance_force = ti.Vector([0.0, 0.0, 0.0])
+            for obs in range(obstacle_count):
+                obs_p = obstacle_pos[obs]
+                obs_r = obstacle_radius[obs]
+                diff = pos_val - obs_p
+                dist_sq = diff.norm_sqr()
+                avoid_dist = obs_r + self.perception_radius * 0.5
+                if dist_sq < avoid_dist * avoid_dist and dist_sq > 1e-6:
+                    dist = ti.sqrt(dist_sq)
+                    strength = self.max_force * 30.0 * (avoid_dist - dist) / avoid_dist
+                    if dist < obs_r:
+                        strength += self.max_force * 150.0 * (obs_r - dist) / obs_r
+                    avoidance_force += (diff / dist) * strength
+            
+            acc_val += avoidance_force
+            
             # Optimized boundary forces with fewer branches
             boundary_force = self.max_force * 5.0
             margin = 10.0
@@ -389,7 +410,10 @@ class DroneSwarm:
                               grid_offset: ti.types.vector(3, ti.f32),
                               grid_shape: ti.types.vector(3, ti.i32),
                               grid_cell_size: ti.f32,
-                              grid_padding: ti.i32):
+                              grid_padding: ti.i32,
+                              obstacle_pos: ti.template(),
+                              obstacle_radius: ti.template(),
+                              obstacle_count: ti.i32):
         # Cache constants to reduce field access
         shoot_range_sq = self.shoot_range * self.shoot_range
         hit_radius_sq = self.hit_radius * self.hit_radius
@@ -478,6 +502,20 @@ class DroneSwarm:
             )
             
             if should_deactivate:
+                self.projectile_active[i] = 0
+                self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
+                free_idx = ti.atomic_add(self.projectile_free_count[None], 1)
+                self.projectile_free_list[free_idx] = i
+                continue
+            
+            hit_obstacle = False
+            for obs in range(obstacle_count):
+                diff_obs = proj_pos - obstacle_pos[obs]
+                if diff_obs.norm_sqr() < obstacle_radius[obs] * obstacle_radius[obs]:
+                    hit_obstacle = True
+                    break
+            
+            if hit_obstacle:
                 self.projectile_active[i] = 0
                 self.projectile_pos[i] = ti.Vector([0.0, 0.0, -10000.0])
                 free_idx = ti.atomic_add(self.projectile_free_count[None], 1)

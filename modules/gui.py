@@ -38,7 +38,7 @@ class GUI():
         self.swarms: Swarms = Swarms(self.scene, self.gamePreset)
         
         yield "Initializing Map"
-        self.map = Map(self.scene, self.gamePreset.map_size)
+        self.map = Map(self.scene, self.gamePreset)
         
         yield "Initializing Voronoi"
         self.voronoi = VoronoiDiagram(boundary=self.gamePreset.map_size)
@@ -143,7 +143,7 @@ class GUI():
             if self.domination <= 0.05:
                 self.defeat = True
             
-            self.gui.text(f"Defending swarm win percentage: {self.domination*100:.1f}%")
+            self.gui.text(f"Defending swarm win: {self.domination*100:.1f}%")
             self.gui.text(f"Attacking drones: {attacking_count}")
             self.gui.text(f"Defending drones: {defending_count}")
             self.gui.text(f"Attacking mode: {self.attacking_swarm.get_mode()}")
@@ -170,9 +170,10 @@ class GUI():
 
         if not self.GuiState.PAUSED:
             self._calc_voronoi()
-            self.swarms.update_logic(self.dt, self.domination)
+            self.swarms.update_logic(self.dt, self.domination, self.map.obstacle_pos, self.map.obstacle_radius, self.map.obstacle_count)
             
         if self.GuiState.SHOW_BOUNDARY: self.map.draw_boundary()
+        self.map.draw_obstacles()
             
         if self.GuiState.SHOW_VORONOI: self.scene.mesh(self.voronoi.get_vertices(), per_vertex_color=self.voronoi.get_colors())
         
