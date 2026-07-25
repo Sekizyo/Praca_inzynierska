@@ -60,6 +60,7 @@ class GUI():
         self.camera.lookat(0, 0, 0)
         self.camera.up(0, 1, 0)
         self.camera.fov(90)
+        self.camera.z_far(max(10000.0, self.gamePreset.map_size * 5.0))
         
     def _update_camera(self) -> None:
         self.camera.track_user_inputs(self.window, movement_speed=3.0, hold_key=RMB)
